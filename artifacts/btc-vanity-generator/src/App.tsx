@@ -40,6 +40,8 @@ import {
 } from 'lucide-react';
 import {
   isValidBitcoinAddressTarget,
+  privateKeyFromRangeValue,
+  privateKeyToHex,
   PRIVATE_KEY_LIMIT,
   type AddressFormat,
 } from '@/lib/bitcoin';
@@ -66,6 +68,8 @@ const queryClient = new QueryClient();
 
 const RANGE_RESUME_STORAGE_KEY = 'bitcoin-vanity-generator:range-resume:v1';
 const MAX_CPU_WORKERS = 32;
+
+type GeneratedCandidateRecord = CandidateRecord & { privateKeyHex: string };
 
 function getMaxCpuWorkers(): number {
   const reportedCores =
@@ -326,7 +330,8 @@ function Home() {
     | 'error'
   >('ready');
   const [result, setResult] = useState<SearchResult | null>(null);
-  const [candidateRecords, setCandidateRecords] = useState<CandidateRecord[]>([]);
+  const [candidateRecords, setCandidateRecords] = useState<GeneratedCandidateRecord[]>([]);
+  const [generatedOnly, setGeneratedOnly] = useState(false);
   const [historyPage, setHistoryPage] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -336,7 +341,7 @@ function Home() {
   const [priceChange, setPriceChange] = useState<number | null>(null);
   const [priceState, setPriceState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [multiChainKey, setMultiChainKey] = useState('');
-  const [multiChainChain, setMultiChainChain] = useState<MultiChainName>('eth');
+  const [multiChainChain, setMultiChainChain] = useState<MultiChainName>('btc');
   const formRef = useRef<HTMLFormElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const autoContinueRangeRef = useRef(true);
@@ -352,6 +357,10 @@ function Home() {
     historyStart,
     historyStart + historyPageSize,
   );
+  const getCandidateAddress = (record: GeneratedCandidateRecord) =>
+    generatedOnly && multiChainChain !== 'btc'
+      ? getMultiChainAddress(record.privateKeyHex, multiChainChain)
+      : record.address;
 
   useEffect(() => {
     let active = true;
@@ -412,7 +421,7 @@ function Home() {
 
     try {
       await navigator.clipboard.writeText(
-        candidateRecords.map((record) => record.address).join('\n'),
+        candidateRecords.map(getCandidateAddress).join('\n'),
       );
       setNotice(
         `Copied all ${candidateRecords.length.toLocaleString()} addresses. Private keys were not copied.`,
@@ -423,7 +432,14 @@ function Home() {
   };
 
   const checkGeneratedBalances = () => {
-    if (candidateRecords.length === 0 || searching || autoResumePending) return;
+    if (
+      candidateRecords.length === 0 ||
+      searching ||
+      autoResumePending ||
+      (generatedOnly && multiChainChain !== 'btc')
+    ) {
+      return;
+    }
     queueBalanceCheck(candidateRecords.map((record) => record.address));
     setLocation('/balance-check');
   };
@@ -433,13 +449,14 @@ function Home() {
 
     const escapeCsvCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const csv = `\uFEFF${candidateRecords
-      .map((record) => escapeCsvCell(record.address))
+      .map((record) => escapeCsvCell(getCandidateAddress(record)))
       .join('\r\n')}`;
     const file = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const fileUrl = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = fileUrl;
-    link.download = `bitcoin-addresses-${new Date().toISOString().slice(0, 10)}.csv`;
+    const chain = generatedOnly ? multiChainChain : 'btc';
+    link.download = `${chain}-addresses-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -450,13 +467,14 @@ function Home() {
     if (candidateRecords.length === 0) return;
 
     const addresses = `${candidateRecords
-      .map((record) => record.address)
+      .map(getCandidateAddress)
       .join('\n')}\n`;
     const file = new Blob([addresses], { type: 'text/plain;charset=utf-8;' });
     const fileUrl = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = fileUrl;
-    link.download = `bitcoin-addresses-${new Date().toISOString().slice(0, 10)}.txt`;
+    const chain = generatedOnly ? multiChainChain : 'btc';
+    link.download = `${chain}-addresses-${new Date().toISOString().slice(0, 10)}.txt`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -604,6 +622,7 @@ function Home() {
       setCandidateRecords([]);
       setHistoryPage(0);
     }
+    setGeneratedOnly(generateOnly);
     setShowPrivateKey(false);
     setAttempts(0);
     setElapsedMs(0);
@@ -623,9 +642,20 @@ function Home() {
 
         if (message.type === 'candidates') {
           rememberGeneratedAddressRanges(message.candidates);
+          const candidates = message.candidates.map((record) => {
+            const privateKeyValue =
+              BigInt(`0x${record.rangeStartHex}`) +
+              BigInt(record.index - existingRecordCount - 1);
+            return {
+              ...record,
+              privateKeyHex: privateKeyToHex(
+                privateKeyFromRangeValue(privateKeyValue),
+              ),
+            };
+          });
           setCandidateRecords((previous) => [
             ...previous,
-            ...message.candidates,
+            ...candidates,
           ].sort((left, right) => left.index - right.index));
         } else if (message.type === 'progress') {
           setProgressPercent(message.percent);
@@ -1018,8 +1048,8 @@ function Home() {
         </section>
 
         <section className="panel" aria-label="Multi-chain helper" style={{ marginTop: 18, padding: 22 }}>
-          <div className="section-kicker"><span className="step-number">02</span> Quick multi-chain address helper</div>
-          <div className="subhead" style={{ marginBottom: 12 }}>Use the same private key to preview a Bitcoin, Ethereum, BNB, or Polygon address without changing the original search logic.</div>
+          <div className="section-kicker"><span className="step-number">02</span> Multi-chain address options</div>
+          <div className="subhead" style={{ marginBottom: 12 }}>Choose the chain for generated range addresses, or enter a private key to preview its address. Vanity pattern and exact-address searches remain Bitcoin-only.</div>
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0,1.3fr) minmax(180px, 0.7fr)', alignItems: 'end' }}>
             <div>
               <label className="field-label" htmlFor="multichain-key">Private key (32-byte hex)</label>
@@ -1035,7 +1065,7 @@ function Home() {
               />
             </div>
             <div>
-              <label className="field-label" htmlFor="multichain-chain">Chain</label>
+              <label className="field-label" htmlFor="multichain-chain">Generated address chain</label>
               <div className="select-wrap" style={{ marginTop: 8 }}>
                 <select
                   id="multichain-chain"
@@ -1116,13 +1146,13 @@ function Home() {
             <div className="history-table-wrap">
               <table className="history-table">
                 <thead>
-                  <tr><th scope="col">Candidate</th><th scope="col">Bitcoin address</th><th scope="col">Private key · WIF</th></tr>
+                  <tr><th scope="col">Candidate</th><th scope="col">{generatedOnly ? `${MULTI_CHAIN_OPTIONS.find((chain) => chain.id === multiChainChain)?.label ?? 'Generated'} address` : 'Bitcoin address'}</th><th scope="col">Private key · WIF</th></tr>
                 </thead>
                 <tbody>
                   {visibleHistory.map((record) => (
                     <tr key={record.index} data-testid={`row-candidate-${record.index}`}>
                       <td>{record.index.toLocaleString()}</td>
-                      <td><code data-testid={`value-address-${record.index}`}>{record.address}</code></td>
+                      <td><code data-testid={`value-address-${record.index}`}>{getCandidateAddress(record)}</code></td>
                       <td><code data-testid={`value-private-key-${record.index}`}>{record.privateKeyWif}</code></td>
                     </tr>
                   ))}
@@ -1130,7 +1160,11 @@ function Home() {
               </table>
             </div>
             <div className="history-pagination">
-              <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
+              {(!generatedOnly || multiChainChain === 'btc') ? (
+                <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
+              ) : (
+                <span className="hint">Generated balance checks are currently supported for Bitcoin only.</span>
+              )}
               <button className="small-button download-addresses-button" type="button" onClick={() => void copyAllAddresses()} data-testid="button-copy-all-addresses"><Copy aria-hidden="true" /> Copy all addresses</button>
               <button className="small-button download-addresses-button" type="button" onClick={downloadAddressesCsv} data-testid="button-download-addresses-csv"><Download aria-hidden="true" /> Download addresses CSV</button>
               <button className="small-button download-addresses-button" type="button" onClick={downloadAddressesTxt} data-testid="button-download-addresses-txt"><Download aria-hidden="true" /> Download addresses TXT</button>
