@@ -68,10 +68,8 @@ const RANGE_RESUME_STORAGE_KEY = 'bitcoin-vanity-generator:range-resume:v1';
 const MAX_CPU_WORKERS = 32;
 
 function getMaxCpuWorkers(): number {
-  const reportedCores =
-    typeof navigator === 'undefined' ? 2 : navigator.hardwareConcurrency;
-  const availableCores =
-    Number.isInteger(reportedCores) && reportedCores > 0 ? reportedCores : 2;
+  const reportedCores = typeof navigator === 'undefined' ? 2 : navigator.hardwareConcurrency;
+  const availableCores = Number.isInteger(reportedCores) && reportedCores > 0 ? reportedCores : 2;
   const optimizedCores = Math.max(availableCores, 8); 
   return Math.max(1, Math.min(optimizedCores, MAX_CPU_WORKERS));
 }
@@ -105,8 +103,7 @@ function parseRangeResumeSettings(value: unknown): RangeResumeSettings | null {
   if (start < 1n || end < start || end >= PRIVATE_KEY_LIMIT) return null;
   const fallbackBatchSize = end - start + 1n;
   const storedBatchSize =
-    typeof settings.batchSize === 'string' &&
-    /^\d{1,78}$/.test(settings.batchSize)
+    typeof settings.batchSize === 'string' && /^\d{1,78}$/.test(settings.batchSize)
       ? BigInt(settings.batchSize)
       : fallbackBatchSize;
   if (storedBatchSize < 1n || storedBatchSize >= PRIVATE_KEY_LIMIT) return null;
@@ -151,31 +148,11 @@ function formatRangeHex(value: bigint, width: number): string {
   return value.toString(16).padStart(width, '0');
 }
 
-function SiteHeader({
-  activePage,
-  children,
-}: {
-  activePage:
-    | 'generator'
-    | 'puzzle'
-    | 'balance'
-    | 'range-lookup'
-    | 'finder'
-    | 'self-test';
-  children: ReactNode;
-}) {
+function SiteHeader({ activePage, children }: { activePage: 'generator' | 'puzzle' | 'balance' | 'range-lookup' | 'finder' | 'self-test'; children: ReactNode; }) {
   return (
     <header className="topbar">
-      <Link href="/" className="brand" data-testid="link-brand-home" aria-label="LUCKY BTC home">
-        <span className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 40 40" fill="none">
-            <path d="M8 12h10M13 12v16M8 28h10" />
-            <path d="M31 13c-2.2-1.6-7.3-1.9-9.8.3-3 2.6-.5 5.2 4.2 6.2 4.8 1 6.4 3.4 4.1 6.1-2.3 2.9-8.1 3-11.3 1.3" />
-          </svg>
-        </span>
-        <span>LUCKY BTC</span>
-      </Link>
-      <nav className="site-nav" aria-label="Main navigation">
+      <Link href="/" className="brand"><span className="brand-mark"><svg viewBox="0 0 40 40" fill="none"><path d="M8 12h10M13 12v16M8 28h10" /><path d="M31 13c-2.2-1.6-7.3-1.9-9.8.3-3 2.6-.5 5.2 4.2 6.2 4.8 1 6.4 3.4 4.1 6.1-2.3 2.9-8.1 3-11.3 1.3" /></svg></span><span>LUCKY BTC</span></Link>
+      <nav className="site-nav">
         <Link href="/" className={`site-nav-link ${activePage === 'generator' ? 'active' : ''}`}>Generator</Link>
         <Link href="/bitcoin-puzzle" className={`site-nav-link ${activePage === 'puzzle' ? 'active' : ''}`}>Bitcoin Puzzle</Link>
         <Link href="/balance-check" className={`site-nav-link ${activePage === 'balance' ? 'active' : ''}`}>Balance Check</Link>
@@ -195,29 +172,15 @@ function getNextRange(endHex: string, batchSize: bigint, width: number): { start
   const maximumKey = PRIVATE_KEY_LIMIT - 1n;
   if (nextStart > maximumKey) return null;
   const nextEnd = nextStart + batchSize - 1n;
-  return {
-    startHex: formatRangeHex(nextStart, width),
-    endHex: formatRangeHex(nextEnd > maximumKey ? maximumKey : nextEnd, width),
-  };
+  return { startHex: formatRangeHex(nextStart, width), endHex: formatRangeHex(nextEnd > maximumKey ? maximumKey : nextEnd, width) };
 }
 
 function saveRangeResumeSettings(settings: RangeResumeSettings): boolean {
-  try {
-    window.sessionStorage.setItem(RANGE_RESUME_STORAGE_KEY, JSON.stringify(settings));
-    return true;
-  } catch {
-    try { window.sessionStorage.removeItem(RANGE_RESUME_STORAGE_KEY); } catch {}
-    return false;
-  }
+  try { window.sessionStorage.setItem(RANGE_RESUME_STORAGE_KEY, JSON.stringify(settings)); return true; } catch { return false; }
 }
 
 function clearRangeResumeSettings(): boolean {
-  try {
-    window.sessionStorage.removeItem(RANGE_RESUME_STORAGE_KEY);
-    return true;
-  } catch {
-    return false;
-  }
+  try { window.sessionStorage.removeItem(RANGE_RESUME_STORAGE_KEY); return true; } catch { return false; }
 }
 
 function Home() {
@@ -301,13 +264,13 @@ function Home() {
       workerRef.current = null;
   }, []);
 
+  const copyTarget = async () => {
+    if (!target) return;
+    try { await navigator.clipboard.writeText(target); setNotice('Search target copied.'); } catch { setNotice('Clipboard access is unavailable in this browser.'); }
+  };
+
   const copyValue = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setNotice(`${label} copied to clipboard.`);
-    } catch {
-      setNotice('Clipboard access is unavailable in this browser.');
-    }
+    try { await navigator.clipboard.writeText(value); setNotice(`${label} copied to clipboard.`); } catch { setNotice('Clipboard access is unavailable in this browser.'); }
   };
 
   const checkGeneratedBalances = () => {
@@ -499,7 +462,6 @@ function Home() {
               </div>
             </div>
 
-            {/* زدنا هنا اختيار الشبكة فـ الفورم */}
             <div className="field-grid">
               <div>
                 <label className="field-label">Blockchain Network</label>
@@ -539,11 +501,38 @@ function Home() {
               />
             </div>
 
-            <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)}>
+            {mode === 'range' && (
+              <>
+                <div className="field-grid" style={{ marginTop: '16px' }}>
+                  <div>
+                    <label className="field-label" htmlFor="range-start">Low private-key bound (hex)</label>
+                    <input className="range-input" id="range-start" disabled={searching} value={rangeStart} onChange={(event) => { clearResumePreference(); setRangeStart(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (start)" />
+                  </div>
+                  <div>
+                    <label className="field-label" htmlFor="range-end">High private-key bound (hex)</label>
+                    <input className="range-input" id="range-end" disabled={searching} value={rangeEnd} onChange={(event) => { clearResumePreference(); setRangeEnd(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (end)" />
+                  </div>
+                </div>
+                <label className="confirm-row" style={{ marginTop: '12px' }}>
+                  <input type="checkbox" disabled={searching} checked={rangeAccepted} onChange={(event) => setRangeAccepted(event.target.checked)} />
+                  <span>I understand this scan displays every checked address and full WIF private key here. I will never use these keys to hold funds.</span>
+                </label>
+              </>
+            )}
+
+            <div className="cpu-worker-control" style={{ marginTop: '16px' }}>
+              <div className="cpu-worker-heading">
+                <label className="field-label" htmlFor="cpu-workers"><Cpu aria-hidden="true" /> CPU workers</label>
+                <output htmlFor="cpu-workers">{cpuWorkers} / {maxCpuWorkers} max</output>
+              </div>
+              <input className="cpu-worker-slider" id="cpu-workers" type="range" min={1} max={maxCpuWorkers} step={1} value={cpuWorkers} disabled={searching} onChange={(event) => setCpuWorkers(Number(event.target.value))} />
+            </div>
+
+            <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)} style={{ marginTop: '20px' }}>
               {searching ? <CircleAlert aria-hidden="true" /> : <Fingerprint aria-hidden="true" />}
               {searching ? 'Stop search' : 'Start local search'}
             </button>
-            {notice && <div className="range-warning" role="status">{notice}</div>}
+            {notice && <div className="range-warning" role="status" style={{ marginTop: '12px' }}>{notice}</div>}
           </form>
 
           <aside className="side-stack">
