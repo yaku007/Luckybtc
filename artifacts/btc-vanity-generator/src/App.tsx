@@ -2,6 +2,7 @@ import {
   type FormEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -34,6 +35,7 @@ import {
   KeyRound,
   LockKeyhole,
   RotateCw,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -215,6 +217,7 @@ function Home() {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [candidateRecords, setCandidateRecords] = useState<GeneratedCandidateRecord[]>([]);
   const [generatedOnly, setGeneratedOnly] = useState(false);
+  const [generatedAddressSearch, setGeneratedAddressSearch] = useState('');
   const [historyPage, setHistoryPage] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -232,13 +235,35 @@ function Home() {
 
   const searching = searchStatus === 'running' || searchStatus === 'stopping';
   const historyPageSize = 100;
-  const historyPageCount = Math.max(1, Math.ceil(candidateRecords.length / historyPageSize));
-  const historyStart = historyPage * historyPageSize;
-  const visibleHistory = candidateRecords.slice(historyStart, historyStart + historyPageSize);
   const getCandidateAddress = (record: GeneratedCandidateRecord) =>
     generatedOnly && chain !== 'btc'
       ? getMultiChainAddress(record.privateKeyHex, chain)
       : record.address;
+  const generatedAddresses = useMemo(
+    () => candidateRecords.map((record) => ({
+      record,
+      address: getCandidateAddress(record),
+    })),
+    [candidateRecords, generatedOnly, chain],
+  );
+  const normalizedAddressSearch = generatedAddressSearch.trim().toLowerCase();
+  const filteredGeneratedAddresses = useMemo(
+    () => normalizedAddressSearch
+      ? generatedAddresses.filter(({ address }) =>
+          address.toLowerCase().includes(normalizedAddressSearch),
+        )
+      : generatedAddresses,
+    [generatedAddresses, normalizedAddressSearch],
+  );
+  const historyPageCount = Math.max(
+    1,
+    Math.ceil(filteredGeneratedAddresses.length / historyPageSize),
+  );
+  const historyStart = historyPage * historyPageSize;
+  const visibleHistory = filteredGeneratedAddresses.slice(
+    historyStart,
+    historyStart + historyPageSize,
+  );
 
   useEffect(() => {
     let active = true;
@@ -281,7 +306,7 @@ function Home() {
   const copyAllAddresses = async () => {
     if (candidateRecords.length === 0) return;
     try {
-      await navigator.clipboard.writeText(candidateRecords.map(getCandidateAddress).join('\n'));
+      await navigator.clipboard.writeText(generatedAddresses.map(({ address }) => address).join('\n'));
       setNotice(`Copied all ${candidateRecords.length.toLocaleString()} addresses. Private keys were not copied.`);
     } catch {
       setNotice('Clipboard access is unavailable in this browser.');
@@ -290,7 +315,7 @@ function Home() {
 
   const downloadAddresses = (format: 'csv' | 'txt') => {
     if (candidateRecords.length === 0) return;
-    const addresses = candidateRecords.map(getCandidateAddress);
+    const addresses = generatedAddresses.map(({ address }) => address);
     const content = format === 'csv'
       ? `\uFEFF${addresses.map((address) => `"${address.replace(/"/g, '""')}"`).join('\r\n')}`
       : `${addresses.join('\n')}\n`;
@@ -315,7 +340,7 @@ function Home() {
     ) {
       return;
     }
-    queueBalanceCheck(candidateRecords.map(getCandidateAddress), chain);
+    queueBalanceCheck(generatedAddresses.map(({ address }) => address), chain);
     setLocation('/balance-check');
   };
 
@@ -332,6 +357,7 @@ function Home() {
     disableAutoResume();
     setCandidateRecords([]);
     setHistoryPage(0);
+    setGeneratedAddressSearch('');
   };
 
   useEffect(() => {
@@ -428,6 +454,7 @@ function Home() {
     if (!isContinuation) {
       setCandidateRecords([]);
       setHistoryPage(0);
+      setGeneratedAddressSearch('');
     }
     setGeneratedOnly(generateOnly);
     setShowPrivateKey(false);
@@ -789,21 +816,43 @@ function Home() {
               <div className="history-warning" role="alert">
                 These rows contain full private keys. Anyone who sees or copies one can spend funds sent to its address. The generated list is only held in memory and clears when the tab closes.
               </div>
+              <label className="history-search" htmlFor="generated-address-search">
+                <Search aria-hidden="true" />
+                <input
+                  id="generated-address-search"
+                  type="search"
+                  value={generatedAddressSearch}
+                  onChange={(event) => {
+                    setGeneratedAddressSearch(event.target.value);
+                    setHistoryPage(0);
+                  }}
+                  placeholder="Search all generated addresses…"
+                  autoComplete="off"
+                  spellCheck={false}
+                  data-testid="input-generated-address-search"
+                />
+                <span className="history-search-count" aria-live="polite">
+                  {filteredGeneratedAddresses.length.toLocaleString()} / {generatedAddresses.length.toLocaleString()}
+                </span>
+              </label>
               <div className="history-table-wrap">
                 <table className="history-table">
                   <thead>
                     <tr><th scope="col">Candidate</th><th scope="col">{MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} address</th><th scope="col">{chain === 'btc' ? 'Private key · WIF' : 'Private key · Hex'}</th></tr>
                   </thead>
                   <tbody>
-                    {visibleHistory.map((record) => (
+                    {visibleHistory.map(({ record, address }) => (
                       <tr key={record.index} data-testid={`row-candidate-${record.index}`}>
                         <td>{record.index.toLocaleString()}</td>
-                        <td><code data-testid={`value-address-${record.index}`}>{getCandidateAddress(record)}</code></td>
+                        <td><code data-testid={`value-address-${record.index}`}>{address}</code></td>
                         <td><code data-testid={`value-private-key-${record.index}`}>{chain === 'btc' ? record.privateKeyWif : record.privateKeyHex}</code></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {filteredGeneratedAddresses.length === 0 && (
+                  <p className="history-search-empty" role="status">No generated addresses match this search.</p>
+                )}
               </div>
               <div className="history-pagination">
                 <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>

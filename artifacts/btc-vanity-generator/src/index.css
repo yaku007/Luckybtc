@@ -218,7 +218,13 @@ h1 { font-family:var(--app-font-display); letter-spacing:-.065em; font-size:clam
 .history-count { color:#39484a;font:600 12px var(--app-font-mono); }
 .history-page-label { color:#858c87;font:10px var(--app-font-mono); }
 .history-warning { margin-bottom:11px;padding:10px 12px;border:1px solid #e3b18d;border-left:3px solid #d66d33;border-radius:7px;background:#fff4e9;color:#713c25;font-size:10px;line-height:1.5; }
+.history-search { display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:0 11px;border:1px solid #ded8cc;border-radius:8px;background:#fffefa;color:#858c87; }
+.history-search:focus-within { border-color:#d88956;box-shadow:0 0 0 3px rgba(216,137,86,.13); }
+.history-search svg { width:15px;height:15px;flex:none; }
+.history-search input { width:100%;min-width:0;padding:10px 0;border:0;outline:0;background:transparent;color:#29383b;font-size:12px; }
+.history-search-count { flex:none;color:#858c87;font:10px var(--app-font-mono); }
 .history-table-wrap { max-height:410px;overflow:auto;border:1px solid #e4ded2;border-radius:8px;background:#fffefa; }
+.history-search-empty { margin:0;padding:18px;text-align:center;color:#858c87;font-size:11px; }
 .history-table { width:100%;min-width:720px;border-collapse:separate;border-spacing:0;text-align:left; }
 .history-table th { position:sticky;top:0;z-index:1;background:#f3f0e8;color:#747c78;font-size:9px;text-transform:uppercase;letter-spacing:.08em; }
 .history-table th,.history-table td { padding:10px 12px;border-bottom:1px solid #eee9df;vertical-align:top; }
@@ -332,6 +338,10 @@ h1 { font-family:var(--app-font-display); letter-spacing:-.065em; font-size:clam
 .history-section { border-top-color: #303032; }
 .history-count { color: #e4e4e7; }
 .history-page-label { color: #a1a1aa; }
+.history-search { border-color:#363639;background:#111112;color:#a1a1aa; }
+.history-search:focus-within { border-color:#f7931a;box-shadow:0 0 0 3px rgba(247,147,26,.15); }
+.history-search input { color:#f4f4f5; }
+.history-search-count,.history-search-empty { color:#a1a1aa; }
 .history-table-wrap { border-color: #363639; background: #111112; }
 .history-table th { background: #242426; color: #ffbd72; }
 .history-table th,.history-table td { border-bottom-color: #29292b; }
