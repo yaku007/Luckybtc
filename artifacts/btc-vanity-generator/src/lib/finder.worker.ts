@@ -2,13 +2,11 @@
 
 import { 
   deriveBitcoinAddress, 
-  privateKeyFromRangeValue,
-  privateKeyToHex
+  privateKeyFromRangeValue 
 } from './bitcoin';
-import { deriveAddressFromPrivateKey } from './multichain';
 
 self.onmessage = async (event) => {
-  const { startHex, endHex, targetAddress, chain } = event.data;
+  const { startHex, endHex, targetAddress } = event.data;
   let current = BigInt(`0x${startHex}`);
   const end = BigInt(`0x${endHex}`);
   const startedAt = performance.now();
@@ -17,28 +15,16 @@ self.onmessage = async (event) => {
   for (let i = current; i <= end; i++) {
     try {
       const key = privateKeyFromRangeValue(i);
-      
-      let address = "";
-      let privateKeyWif = "";
-      
-      // هنا كنختارو الخوارزمية على حساب الشبكة
-      if (chain === "eth" || chain === "bnb" || chain === "polygon") {
-        address = deriveAddressFromPrivateKey(key, chain);
-        // EVM ماعندهاش WIF، غير HEX
-      } else {
-        const result = deriveBitcoinAddress(key, 'legacy');
-        address = result.address;
-        privateKeyWif = result.privateKeyWif;
-      }
+      const result = deriveBitcoinAddress(key, 'legacy');
 
-      if (address === targetAddress.trim()) {
+      if (result.address === targetAddress.trim()) {
         self.postMessage({ 
           type: 'found', 
           result: { 
             index: i.toString(), 
-            address: address, 
-            privateKeyHex: privateKeyToHex(key), 
-            privateKeyWif: privateKeyWif 
+            address: result.address, 
+            privateKeyHex: result.privateKeyHex, 
+            privateKeyWif: result.privateKeyWif 
           } 
         });
         return;
@@ -50,7 +36,7 @@ self.onmessage = async (event) => {
         self.postMessage({
           type: 'progress',
           index: i.toString(),
-          address: address,
+          address: result.address,
           keysPerSecond: Math.floor(attempts / elapsedSeconds),
         });
         await new Promise((resolve) => setTimeout(resolve, 0));
