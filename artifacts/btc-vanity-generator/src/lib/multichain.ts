@@ -61,10 +61,8 @@ function publicKeyToLegacyBitcoinAddress(publicKey: Uint8Array): string {
 }
 
 export function publicKeyToEvmAddress(publicKey: Uint8Array): string {
-  const uncompressed = publicKey.length === 65 && publicKey[0] === 0x04
-    ? publicKey.slice(1)
-    : publicKey;
-  const hash = keccak_256(uncompressed.slice(1));
+  const uncompressed = secp256k1.Point.fromBytes(publicKey).toBytes(false).slice(1);
+  const hash = keccak_256(uncompressed);
   return `0x${Array.from(hash.slice(-20), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 

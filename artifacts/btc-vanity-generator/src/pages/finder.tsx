@@ -1,9 +1,16 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { findHdAddressByXpub } from '@/lib/hd-address-finder';
+import { MULTI_CHAIN_OPTIONS, type MultiChainName } from '@/lib/multichain';
 import './finder.css';
 
 export default function FinderPage() {
+  const [mode, setMode] = useState<'range' | 'hd'>('range');
   const [startHex, setStartHex] = useState('1');
   const [endHex, setEndHex] = useState('FFFFF');
+  const [xpub, setXpub] = useState('');
+  const [chain, setChain] = useState<MultiChainName>('eth');
+  const [startIndex, setStartIndex] = useState('0');
+  const [endIndex, setEndIndex] = useState('1000');
   const [targetAddress, setTargetAddress] = useState('');
   const [status, setStatus] = useState('Ready');
   const [progress, setProgress] = useState<{ index: string; address: string; keysPerSecond: number } | null>(null);
@@ -11,13 +18,71 @@ export default function FinderPage() {
   const [error, setError] = useState('');
   const [searching, setSearching] = useState(false);
   const workerRef = useRef<Worker | null>(null);
+  const hdControllerRef = useRef<AbortController | null>(null);
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (searching) {
-      workerRef.current?.terminate();
-      setSearching(false);
-      setStatus('Search stopped');
+      if (mode === 'hd') {
+        hdControllerRef.current?.abort();
+      } else {
+        workerRef.current?.terminate();
+        setSearching(false);
+        setStatus('Search stopped');
+      }
+      return;
+    }
+
+    if (mode === 'hd') {
+      const firstIndex = Number(startIndex);
+      const lastIndex = Number(endIndex);
+      if (!/^\d+$/.test(startIndex) || !/^\d+$/.test(endIndex)) {
+        setError('Enter whole-number HD indexes.');
+        return;
+      }
+      if (!Number.isSafeInteger(firstIndex) || !Number.isSafeInteger(lastIndex) || lastIndex < firstIndex) {
+        setError('Enter a valid HD index range.');
+        return;
+      }
+      if (lastIndex - firstIndex > 100_000) {
+        setError('Search ranges are limited to 100,001 addresses per run.');
+        return;
+      }
+
+      setSearching(true);
+      setStatus('Searching HD indexes...');
+      setError('');
+      setMatch(null);
+      setProgress(null);
+      const controller = new AbortController();
+      hdControllerRef.current = controller;
+
+      void findHdAddressByXpub({
+        xpub,
+        startIndex: firstIndex,
+        endIndex: lastIndex,
+        targetAddress,
+        chain,
+        signal: controller.signal,
+        onProgress: (item) => setProgress({
+          index: String(item.index),
+          address: item.address,
+          keysPerSecond: item.keysPerSecond,
+        }),
+      }).then((result) => {
+        setMatch(result);
+        setStatus(result ? 'HD address match found!' : 'Search complete — no match found');
+      }).catch((searchError: unknown) => {
+        if (controller.signal.aborted) {
+          setStatus('Search stopped');
+        } else {
+          setError(searchError instanceof Error ? searchError.message : 'HD search failed.');
+          setStatus('Search could not start');
+        }
+      }).finally(() => {
+        if (hdControllerRef.current === controller) hdControllerRef.current = null;
+        setSearching(false);
+      });
       return;
     }
 
@@ -61,38 +126,115 @@ export default function FinderPage() {
   return (
     <main className="page-wrap finder-page">
       <section className="intro">
-        <div className="eyebrow">BITCOIN ADDRESS FINDER (BRUTE FORCE)</div>
-        <h1>Find Private Key by Address</h1>
+        <div className="eyebrow">
+          {mode === 'hd' ? 'MULTICHAIN HD ADDRESS FINDER' : 'BITCOIN ADDRESS FINDER (BRUTE FORCE)'}
+        </div>
+        <h1>{mode === 'hd' ? 'HD Address Finder' : 'Find Private Key by Address'}</h1>
         <p className="intro-copy">
-          Search a specific range of private keys to find the matching address.
+          {mode === 'hd'
+            ? 'Match a public address against indexes derived from an account xpub.'
+            : 'Search a specific range of private keys to find the matching address.'}
         </p>
       </section>
 
       <section className="panel finder-panel" aria-label="Address finder">
         <form className="finder-form" onSubmit={handleSearch}>
           <label className="finder-field">
-            <span>Address to find</span>
-            <input
-              autoComplete="off"
-              spellCheck={false}
-              value={targetAddress}
-              onChange={(event) => setTargetAddress(event.target.value)}
-              placeholder="1... or bc1q..."
+            <span>Finder mode</span>
+            <select
+              value={mode}
+              onChange={(event) => {
+                setMode(event.target.value as 'range' | 'hd');
+                setSearching(false);
+                setStatus('Ready');
+                setError('');
+                setMatch(null);
+                setProgress(null);
+              }}
               disabled={searching}
-              required
-            />
+            >
+              <option value="range">Bitcoin private-key range</option>
+              <option value="hd">HD address lookup (xpub)</option>
+            </select>
           </label>
 
-          <div className="finder-index-row">
-            <label className="finder-field">
-              <span>Start Key (Hex)</span>
-              <input type="text" value={startHex} onChange={(e) => setStartHex(e.target.value)} disabled={searching} required />
-            </label>
-            <label className="finder-field">
-              <span>End Key (Hex)</span>
-              <input type="text" value={endHex} onChange={(e) => setEndHex(e.target.value)} disabled={searching} required />
-            </label>
-          </div>
+          {mode === 'hd' ? (
+            <>
+              <label className="finder-field">
+                <span>Account extended public key (xpub)</span>
+                <input
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={xpub}
+                  onChange={(event) => setXpub(event.target.value.trim())}
+                  placeholder="xpub..."
+                  disabled={searching}
+                  required
+                />
+              </label>
+              <div className="finder-index-row">
+                <label className="finder-field">
+                  <span>Chain</span>
+                  <select value={chain} onChange={(event) => setChain(event.target.value as MultiChainName)} disabled={searching}>
+                    {MULTI_CHAIN_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="finder-field">
+                  <span>Address to match</span>
+                  <input
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={targetAddress}
+                    onChange={(event) => setTargetAddress(event.target.value)}
+                    placeholder={chain === 'btc' ? 'Legacy address (1...)' : '0x...'}
+                    disabled={searching}
+                    required
+                  />
+                </label>
+              </div>
+              <div className="finder-index-row">
+                <label className="finder-field">
+                  <span>Start index</span>
+                  <input type="number" min="0" max="2147483647" value={startIndex} onChange={(event) => setStartIndex(event.target.value)} disabled={searching} required />
+                </label>
+                <label className="finder-field">
+                  <span>End index</span>
+                  <input type="number" min="0" max="2147483647" value={endIndex} onChange={(event) => setEndIndex(event.target.value)} disabled={searching} required />
+                </label>
+              </div>
+              <p className="finder-note">
+                Use a public xpub for the selected chain. EVM chains expect an account-level xpub and derive <code>/0/index</code>; Bitcoin keeps its existing derivation path. Private extended keys are rejected, and matches never reveal private keys.
+              </p>
+            </>
+          ) : (
+            <>
+              <label className="finder-field">
+                <span>Address to find</span>
+                <input
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={targetAddress}
+                  onChange={(event) => setTargetAddress(event.target.value)}
+                  placeholder="1... or bc1q..."
+                  disabled={searching}
+                  required
+                />
+              </label>
+
+              <div className="finder-index-row">
+                <label className="finder-field">
+                  <span>Start Key (Hex)</span>
+                  <input type="text" value={startHex} onChange={(e) => setStartHex(e.target.value)} disabled={searching} required />
+                </label>
+                <label className="finder-field">
+                  <span>End Key (Hex)</span>
+                  <input type="text" value={endHex} onChange={(e) => setEndHex(e.target.value)} disabled={searching} required />
+                </label>
+              </div>
+            </>
+          )}
 
           <button className="primary-button" type="submit">
             {searching ? 'Stop search' : 'Start Search'}
@@ -103,19 +245,28 @@ export default function FinderPage() {
           <strong>{status}</strong>
           {progress && searching && (
             <span>
-              Key: {progress.index} · {progress.keysPerSecond.toLocaleString()} keys/sec
+              {mode === 'hd' ? 'Index' : 'Key'}: {progress.index} · {progress.keysPerSecond.toLocaleString()} keys/sec
             </span>
           )}
           {error && <p className="finder-error">{error}</p>}
         </div>
 
         {match && (
-          <div className="finder-match">
-            <div className="section-kicker">✅ Found!</div>
-            <p><strong>Address:</strong> {match.address}</p>
-            <p><strong>Private Key (Hex):</strong> {match.privateKeyHex}</p>
-            <p><strong>Private Key (WIF):</strong> {match.privateKeyWif}</p>
-          </div>
+          mode === 'hd' ? (
+            <div className="finder-match">
+              <div className="section-kicker">HD address match</div>
+              <p><strong>Chain:</strong> {MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label}</p>
+              <p><strong>Index:</strong> {match.index}</p>
+              <p><strong>Address:</strong> {match.address}</p>
+            </div>
+          ) : (
+            <div className="finder-match">
+              <div className="section-kicker">Match found</div>
+              <p><strong>Address:</strong> {match.address}</p>
+              <p><strong>Private Key (Hex):</strong> {match.privateKeyHex}</p>
+              <p><strong>Private Key (WIF):</strong> {match.privateKeyWif}</p>
+            </div>
+          )
         )}
       </section>
     </main>

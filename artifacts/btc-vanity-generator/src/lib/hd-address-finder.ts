@@ -2,6 +2,11 @@ import { HDKey } from '@scure/bip32';
 import { ripemd160 } from '@noble/hashes/legacy.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { isValidBitcoinAddressTarget } from '@/lib/bitcoin';
+import {
+  isValidEvmAddress,
+  publicKeyToEvmAddress,
+  type MultiChainName,
+} from '@/lib/multichain';
 
 const BASE58_ALPHABET =
   '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -15,8 +20,6 @@ export type HdAddressProgress = {
 export type HdAddressMatch = {
   index: number;
   address: string;
-  privateKeyWif?: string;
-  privateKeyHex?: string;
 };
 
 function base58Encode(bytes: Uint8Array): string {
@@ -52,28 +55,12 @@ function legacyAddressFromPublicKey(publicKey: Uint8Array): string {
   return base58Encode(addressBytes);
 }
 
-function privateKeyToHex(privateKey: Uint8Array): string {
-  return Array.from(privateKey, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function privateKeyToWif(privateKey: Uint8Array): string {
-  const payload = new Uint8Array(34);
-  payload[0] = 0x80;
-  payload.set(privateKey, 1);
-  payload[33] = 0x01;
-  
-  const checksum = sha256(sha256(payload)).slice(0, 4);
-  const wifBytes = new Uint8Array(payload.length + checksum.length);
-  wifBytes.set(payload);
-  wifBytes.set(checksum, payload.length);
-  return base58Encode(wifBytes);
-}
-
 export async function findHdAddressByXpub({
   xpub,
   startIndex,
   endIndex,
   targetAddress,
+  chain = 'btc',
   signal,
   onProgress,
 }: {
@@ -81,23 +68,30 @@ export async function findHdAddressByXpub({
   startIndex: number;
   endIndex: number;
   targetAddress: string;
+  chain?: MultiChainName;
   signal?: AbortSignal;
   onProgress?: (progress: HdAddressProgress) => void;
 }): Promise<HdAddressMatch | null> {
   const normalizedKey = xpub.trim();
   const normalizedTarget = targetAddress.trim();
 
-  if (!normalizedKey.startsWith('xpub') && !normalizedKey.startsWith('xprv')) {
-    throw new Error('Enter a mainnet xpub or xprv.');
+  if (!normalizedKey.startsWith('xpub')) {
+    throw new Error('Enter a mainnet xpub. Private extended keys are not accepted.');
   }
   if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex)) {
     throw new Error('Indexes must be whole numbers.');
   }
-  if (startIndex < 0 || endIndex < startIndex) {
+  if (startIndex < 0 || endIndex < startIndex || endIndex > 0x7fffffff) {
     throw new Error('Enter a valid index range.');
   }
-  if (!isValidBitcoinAddressTarget(normalizedTarget, 'legacy')) {
-    throw new Error('Enter a valid mainnet Legacy address.');
+  if (endIndex - startIndex > 100_000) {
+    throw new Error('Search ranges are limited to 100,001 addresses per run.');
+  }
+  if (chain === 'btc' && !isValidBitcoinAddressTarget(normalizedTarget, 'legacy')) {
+    throw new Error('Enter a valid mainnet Legacy Bitcoin address.');
+  }
+  if (chain !== 'btc' && !isValidEvmAddress(normalizedTarget)) {
+    throw new Error(`Enter a valid ${chain.toUpperCase()} address.`);
   }
 
   let master: HDKey;
@@ -107,6 +101,10 @@ export async function findHdAddressByXpub({
     throw new Error('The extended key is invalid.');
   }
 
+  if (master.privateKey) {
+    throw new Error('Enter a public xpub, not a private extended key.');
+  }
+
   const startedAt = performance.now();
   let checked = 0;
   for (let index = startIndex; index <= endIndex; index += 1) {
@@ -114,7 +112,7 @@ export async function findHdAddressByXpub({
 
     let child: HDKey;
     try {
-      child = master.derive(`m/0/0/${index}`);
+      child = master.derive(chain === 'btc' ? `m/0/0/${index}` : `m/0/${index}`);
     } catch {
       throw new Error(`Could not derive address index ${index}.`);
     }
@@ -123,16 +121,11 @@ export async function findHdAddressByXpub({
       throw new Error(`No public key was available at index ${index}.`);
     }
 
-    const address = legacyAddressFromPublicKey(child.publicKey);
+    const address = chain === 'btc'
+      ? legacyAddressFromPublicKey(child.publicKey)
+      : publicKeyToEvmAddress(child.publicKey);
     if (address === normalizedTarget) {
-      const result: HdAddressMatch = { index, address };
-      
-      if (child.privateKey) {
-        result.privateKeyHex = privateKeyToHex(child.privateKey);
-        result.privateKeyWif = privateKeyToWif(child.privateKey);
-      }
-      
-      return result;
+      return { index, address };
     }
 
     checked += 1;
