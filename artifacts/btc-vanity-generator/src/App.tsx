@@ -44,6 +44,11 @@ import {
   type AddressFormat,
 } from '@/lib/bitcoin';
 import {
+  getMultiChainAddress,
+  MULTI_CHAIN_OPTIONS,
+  type MultiChainName,
+} from '@/lib/multichain';
+import {
   MAX_RECORDED_RANGE_CANDIDATES,
   type CandidateRecord,
   type SearchResult,
@@ -330,6 +335,8 @@ function Home() {
   const [price, setPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<number | null>(null);
   const [priceState, setPriceState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [multiChainKey, setMultiChainKey] = useState('');
+  const [multiChainChain, setMultiChainChain] = useState<MultiChainName>('eth');
   const formRef = useRef<HTMLFormElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const autoContinueRangeRef = useRef(true);
@@ -801,6 +808,15 @@ function Home() {
   const formattedPrice = price === null
     ? '—'
     : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price);
+  const multiChainAddress = multiChainKey.trim()
+    ? (() => {
+        try {
+          return getMultiChainAddress(multiChainKey, multiChainChain);
+        } catch {
+          return '';
+        }
+      })()
+    : '';
 
   return (
     <div className="app-shell">
@@ -999,6 +1015,52 @@ function Home() {
               </ul>
             </section>
           </aside>
+        </section>
+
+        <section className="panel" aria-label="Multi-chain helper" style={{ marginTop: 18, padding: 22 }}>
+          <div className="section-kicker"><span className="step-number">02</span> Quick multi-chain address helper</div>
+          <div className="subhead" style={{ marginBottom: 12 }}>Use the same private key to preview a Bitcoin, Ethereum, BNB, or Polygon address without changing the original search logic.</div>
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0,1.3fr) minmax(180px, 0.7fr)', alignItems: 'end' }}>
+            <div>
+              <label className="field-label" htmlFor="multichain-key">Private key (32-byte hex)</label>
+              <input
+                id="multichain-key"
+                className="target-input"
+                value={multiChainKey}
+                onChange={(event) => setMultiChainKey(event.target.value.trim())}
+                placeholder="Paste a 64-character hex private key"
+                autoComplete="off"
+                spellCheck={false}
+                style={{ width: '100%', marginTop: 8 }}
+              />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="multichain-chain">Chain</label>
+              <div className="select-wrap" style={{ marginTop: 8 }}>
+                <select
+                  id="multichain-chain"
+                  className="select-control"
+                  value={multiChainChain}
+                  onChange={(event) => setMultiChainChain(event.target.value as MultiChainName)}
+                >
+                  {MULTI_CHAIN_OPTIONS.map((chain) => (
+                    <option key={chain.id} value={chain.id}>{chain.label}</option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden="true" />
+              </div>
+            </div>
+          </div>
+          {multiChainKey && (
+            <div style={{ marginTop: 16, padding: 14, borderRadius: 10, border: '1px solid hsl(var(--border))', background: '#111113', overflowWrap: 'anywhere' }}>
+              <div className="result-label">Derived {MULTI_CHAIN_OPTIONS.find((chain) => chain.id === multiChainChain)?.label ?? 'Address'}</div>
+              {multiChainAddress ? (
+                <div className="address-text" style={{ marginTop: 8, fontSize: 15 }}>{multiChainAddress}</div>
+              ) : (
+                <div className="range-warning" role="status" style={{ marginTop: 8 }}>Enter a valid 32-byte private key to derive the address for this chain.</div>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="panel result-panel" aria-label="Search result">

@@ -12,6 +12,12 @@ import {
 } from 'lucide-react';
 import { isValidMainnetBitcoinAddress } from '@/lib/bitcoin';
 import { takeQueuedBalanceCheck } from '@/lib/balance-check-transfer';
+import {
+  fetchEvmBalanceBatch,
+  isValidEvmAddress,
+  MULTI_CHAIN_OPTIONS,
+  type MultiChainName,
+} from '@/lib/multichain';
 import './bitcoin-balance.css';
 
 const MAX_ADDRESSES = 1_000_000;
@@ -22,8 +28,17 @@ const UI_UPDATE_INTERVAL_MS = 500;
 const BALANCE_API = 'https://blockchain.info/balance';
 
 type ApiBalance = { final_balance?: number };
-type FundedAddress = { address: string; balanceSats: number };
+type FundedAddress = { address: string; balanceSats?: number; balanceWei?: bigint };
 type PageStatus = 'ready' | 'preparing' | 'running' | 'complete' | 'stopped' | 'error';
+
+function formatNativeBalance(balanceWei: bigint): string {
+  const whole = balanceWei / 1_000_000_000_000_000_000n;
+  const fractional = (balanceWei % 1_000_000_000_000_000_000n)
+    .toString()
+    .padStart(18, '0')
+    .slice(0, 8);
+  return `${whole}.${fractional}`;
+}
 
 function waitForRetry(milliseconds: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -94,6 +109,7 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
   const [fileName, setFileName] = useState('');
   const [status, setStatus] = useState<PageStatus>('ready');
   const [notice, setNotice] = useState('');
+  const [chain, setChain] = useState<MultiChainName>('btc');
   const [totalAddresses, setTotalAddresses] = useState(0);
   const [invalidCount, setInvalidCount] = useState(0);
   const [checkedCount, setCheckedCount] = useState(0);
@@ -146,11 +162,64 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
     const uniqueEntries = [...new Set(entries)];
     const duplicateCount = entries.length - uniqueEntries.length;
     if (uniqueEntries.length === 0) {
-      setNotice('Paste or upload Bitcoin addresses to check.');
+      setNotice(chain === 'btc' ? 'Paste or upload Bitcoin addresses to check.' : `Paste or upload ${MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label ?? 'chain'} addresses to check.`);
       return;
     }
     if (uniqueEntries.length > MAX_ADDRESSES) {
       setNotice(`The limit is ${MAX_ADDRESSES.toLocaleString()} unique addresses per run.`);
+      return;
+    }
+
+    if (chain !== 'btc') {
+      const validAddresses = uniqueEntries.filter((address) => isValidEvmAddress(address));
+      const rejected = uniqueEntries.length - validAddresses.length;
+      setStatus('preparing');
+      setNotice('Validating addresses locally…');
+      setFundedAddresses([]);
+      setCheckedCount(0);
+      setInvalidCount(rejected + duplicateCount);
+      setTotalAddresses(validAddresses.length);
+      if (validAddresses.length === 0) {
+        setStatus('error');
+        setNotice(`No valid ${MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label ?? 'EVM'} addresses were found in that list.`);
+        return;
+      }
+
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      const funded: FundedAddress[] = [];
+      let checked = 0;
+      let nextIndex = 0;
+      setStatus('running');
+      setNotice('Checking balances in batches. The provider may slow large runs.');
+
+      try {
+        while (!controller.signal.aborted && nextIndex < validAddresses.length) {
+          const batch = validAddresses.slice(nextIndex, nextIndex + 25);
+          nextIndex += batch.length;
+          const result = await fetchEvmBalanceBatch(chain, batch, controller.signal);
+          funded.push(...result.map((entry) => ({ address: entry.address, balanceWei: entry.balanceWei })));
+          checked += batch.length;
+          setCheckedCount(checked);
+          setFundedAddresses([...funded]);
+        }
+      } catch (error) {
+        controllerRef.current = null;
+        if (controller.signal.aborted) {
+          setStatus('stopped');
+          setNotice('Balance check stopped.');
+        } else {
+          setStatus('error');
+          setNotice(error instanceof Error ? error.message : 'The balance lookup failed.');
+        }
+        return;
+      }
+
+      controllerRef.current = null;
+      setCheckedCount(checked);
+      setFundedAddresses([...funded]);
+      setStatus('complete');
+      setNotice(`Finished. ${funded.length.toLocaleString()} addresses have a positive balance.`);
       return;
     }
 
@@ -249,17 +318,24 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
 
   function downloadFundedCsv() {
     if (fundedAddresses.length === 0) return;
-    const rows = [
-      'address,balance_btc,balance_sats',
-      ...fundedAddresses.map(({ address, balanceSats }) =>
-        `${address},${(balanceSats / 100_000_000).toFixed(8)},${balanceSats}`,
-      ),
-    ];
+    const rows = chain === 'btc'
+      ? [
+          'address,balance_btc,balance_sats',
+          ...fundedAddresses.map(({ address, balanceSats }) =>
+            `${address},${((balanceSats ?? 0) / 100_000_000).toFixed(8)},${balanceSats ?? 0}`,
+          ),
+        ]
+      : [
+          'address,balance_eth,balance_wei',
+          ...fundedAddresses.map(({ address, balanceWei }) =>
+            `${address},${formatNativeBalance(balanceWei ?? 0n)},${(balanceWei ?? 0n).toString()}`,
+          ),
+        ];
     const file = new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'bitcoin-funded-addresses.csv';
+    link.download = `${chain}-funded-addresses.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -269,28 +345,42 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
     ? Math.min(100, (checkedCount / totalAddresses) * 100)
     : 0;
 
+  const networkLabel = chain === 'btc'
+    ? 'Bitcoin'
+    : MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label ?? 'EVM';
+
   return (
     <main className="balance-page" data-testid="page-bitcoin-balance">
       <header className="balance-intro">
         <div className="balance-kicker"><Search aria-hidden="true" /> Public address lookup</div>
-        <h1>Bitcoin Balance Check</h1>
+        <h1>{networkLabel} Balance Check</h1>
         <p>Check up to one million mainnet addresses from a text list or CSV file.</p>
       </header>
 
       <section className="balance-workspace" aria-label="Bulk balance check">
         <div className="balance-panel">
-          <div className="balance-panel-heading">
+          <div className="balance-panel-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div>
               <p className="balance-label">ADDRESS LIST</p>
               <h2>Paste or upload addresses</h2>
             </div>
+            <label className="finder-field" style={{ minWidth: 180 }}>
+              <span>Chain</span>
+              <select value={chain} onChange={(event) => setChain(event.target.value as MultiChainName)} disabled={busy}>
+                {MULTI_CHAIN_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
+            </label>
             {fileName && <span className="balance-file-name">{fileName}</span>}
           </div>
           <textarea
             ref={inputRef}
             className="balance-address-input"
             disabled={busy}
-            placeholder="One Bitcoin address per line, or comma-separated"
+            placeholder={chain === 'btc'
+              ? 'One Bitcoin address per line, or comma-separated'
+              : 'One EVM address per line, or comma-separated'}
             spellCheck={false}
             data-testid="input-balance-addresses"
           />
@@ -328,7 +418,9 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
             )}
           </div>
           <p className="balance-provider-note">
-            Addresses are validated in your browser, then sent to Blockchain.com in batches of 100. Two requests run at a time; provider rate limits affect large lists. No private keys are requested or uploaded.
+            {chain === 'btc'
+              ? 'Addresses are validated in your browser, then sent to Blockchain.com in batches of 100. Two requests run at a time; provider rate limits affect large lists. No private keys are requested or uploaded.'
+              : `Addresses are validated locally and checked through the ${MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label ?? 'selected chain'} RPC endpoint. No private keys are requested or uploaded.`}
           </p>
         </div>
 
@@ -365,11 +457,14 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
               <table className="balance-table">
                 <thead><tr><th scope="col">Address</th><th scope="col">Balance</th><th scope="col">Satoshis</th></tr></thead>
                 <tbody>
-                  {fundedAddresses.map(({ address, balanceSats }) => (
+                  {fundedAddresses.map(({ address, balanceSats, balanceWei }) => (
                     <tr key={address}>
                       <td><code>{address}</code></td>
-                      <td>{(balanceSats / 100_000_000).toFixed(8)} BTC</td>
-                      <td>{balanceSats.toLocaleString()}</td>
+                      <td>{chain === 'btc'
+                        ? `${((balanceSats ?? 0) / 100_000_000).toFixed(8)} BTC`
+                        : `${formatNativeBalance(balanceWei ?? 0n)} ${MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.symbol ?? 'ETH'}`}
+                      </td>
+                      <td>{chain === 'btc' ? (balanceSats ?? 0).toLocaleString() : (balanceWei ?? 0n).toString()}</td>
                     </tr>
                   ))}
                 </tbody>
