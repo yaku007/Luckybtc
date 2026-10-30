@@ -15,6 +15,8 @@ import {
   type WorkerResponse,
 } from "./vanity-protocol";
 
+const MAX_CANDIDATES_BETWEEN_YIELDS = 32;
+
 const worker = self as unknown as {
   onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
   postMessage: (message: WorkerResponse) => void;
@@ -142,7 +144,11 @@ worker.onmessage = (event) => {
       };
 
       while (!stopRequested) {
-        for (let count = 0; count < 500 && !stopRequested; count += 1) {
+        for (
+          let count = 0;
+          count < MAX_CANDIDATES_BETWEEN_YIELDS && !stopRequested;
+          count += 1
+        ) {
           if (options.mode === "range" && cursor > end) {
             flushCandidates();
             reportEnd(
