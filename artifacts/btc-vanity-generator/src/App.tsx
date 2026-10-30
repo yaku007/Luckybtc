@@ -236,8 +236,8 @@ function Home() {
   const searching = searchStatus === 'running' || searchStatus === 'stopping';
   const historyPageSize = 100;
   const getCandidateAddress = (record: GeneratedCandidateRecord) =>
-    generatedOnly && chain !== 'btc'
-      ? getMultiChainAddress(record.privateKeyHex, chain)
+    generatedOnly
+      ? record.selectedChainAddress
       : record.address;
   const generatedAddresses = useMemo(
     () => candidateRecords.map((record) => ({
@@ -576,6 +576,7 @@ function Home() {
         type: 'start',
         mode: mode === 'range' ? 'range' : 'random',
         format,
+        chain,
         prefix: normalizedExactTarget ? '' : (patternPosition === 'prefix' ? (chain === 'btc' ? `1${pattern}` : '') : ''),
         suffix: normalizedExactTarget || patternPosition === 'prefix' ? '' : pattern,
         targetAddress: normalizedExactTarget || undefined,

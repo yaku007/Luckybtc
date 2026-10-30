@@ -14,6 +14,7 @@ import {
   type WorkerRequest,
   type WorkerResponse,
 } from "./vanity-protocol";
+import { deriveAddressFromPrivateKey } from "./multichain";
 
 const MAX_CANDIDATES_BETWEEN_YIELDS = 32;
 
@@ -177,6 +178,10 @@ worker.onmessage = (event) => {
             pendingCandidates.push({
               index: (options.candidateOffset ?? 0) + attempts,
               address,
+              selectedChainAddress:
+                options.chain && options.chain !== "btc"
+                  ? deriveAddressFromPrivateKey(key, options.chain)
+                  : address,
               privateKeyWif: result.privateKeyWif,
               rangeStartHex: start.toString(16),
               rangeEndHex: end.toString(16),

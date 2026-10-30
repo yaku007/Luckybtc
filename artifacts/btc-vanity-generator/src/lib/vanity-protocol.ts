@@ -1,4 +1,5 @@
 import type { AddressFormat } from "./bitcoin";
+import type { MultiChainName } from "./multichain";
 
 export type SearchMode = "random" | "range";
 
@@ -9,6 +10,7 @@ export type StartSearch = {
   type: "start";
   mode: SearchMode;
   format: AddressFormat;
+  chain?: MultiChainName;
   prefix: string;
   suffix: string;
   targetAddress?: string;
@@ -31,6 +33,7 @@ export type SearchResult = {
 export type CandidateRecord = {
   index: number;
   address: string;
+  selectedChainAddress: string;
   privateKeyWif: string;
   rangeStartHex: string;
   rangeEndHex: string;

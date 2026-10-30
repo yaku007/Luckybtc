@@ -1,6 +1,7 @@
 import { HDKey } from '@scure/bip32';
 import { describe, expect, it } from 'vitest';
 import {
+  deriveAddressFromPrivateKey,
   getMultiChainAddress,
   getMultiChainAddressFromHdKey,
 } from './multichain';
@@ -18,6 +19,16 @@ describe('multichain wallet helpers', () => {
   it('derives the standard Ethereum address for private key one', () => {
     expect(getMultiChainAddress(`${'0'.repeat(63)}1`, 'eth')).toBe(
       '0x7e5f4552091a69125d5dfcb7b8c2659029395bdf',
+    );
+  });
+
+  it('derives a selected-chain address from candidate private-key bytes', () => {
+    const privateKeyBytes = Uint8Array.from(
+      privateKeyHex.slice(2).match(/.{1,2}/g)!.map((byte) => Number.parseInt(byte, 16)),
+    );
+
+    expect(deriveAddressFromPrivateKey(privateKeyBytes, 'polygon')).toBe(
+      getMultiChainAddress(privateKeyHex, 'polygon'),
     );
   });
 
