@@ -87,6 +87,12 @@ export function getMultiChainAddress(privateKeyHex: string, chain: MultiChainNam
   return publicKeyToEvmAddress(publicKey);
 }
 
+// الدالة الجديدة اللي زدناها باش الـ Worker يقدر يستعملها ديريكت
+export function deriveAddressFromPrivateKey(privateKey: Uint8Array, chain: MultiChainName): string {
+  const privateKeyHex = bytesToHex(privateKey);
+  return getMultiChainAddress(privateKeyHex, chain);
+}
+
 export function getMultiChainAddressFromHdKey(
   hdKey: HDKey,
   chain: MultiChainName,
@@ -161,4 +167,4 @@ export async function fetchEvmBalanceBatch(
   }
 
   return results;
-}
+   }
