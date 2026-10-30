@@ -209,7 +209,7 @@ function Home() {
   const [continuationBatchSize, setContinuationBatchSize] = useState(() => initialResume?.batchSize ?? '');
   const [canContinueRange, setCanContinueRange] = useState(Boolean(initialResume));
   const [rangeAccepted, setRangeAccepted] = useState(Boolean(initialResume));
-  const [autoContinueRange, setAutoContinueRange] = useState(true);
+  const [autoContinueRange, setAutoContinueRange] = useState(false);
   const [autoResumeEnabled, setAutoResumeEnabled] = useState(Boolean(initialResume));
   const [autoResumePending, setAutoResumePending] = useState(Boolean(initialResume));
   const [notice, setNotice] = useState('');
@@ -231,7 +231,7 @@ function Home() {
 
   const formRef = useRef<HTMLFormElement>(null);
   const workerRef = useRef<Worker | null>(null);
-  const autoContinueRangeRef = useRef(true);
+  const autoContinueRangeRef = useRef(false);
 
   const searching = searchStatus === 'running' || searchStatus === 'stopping';
   const historyPageSize = 100;
