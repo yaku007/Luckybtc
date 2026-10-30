@@ -1,11 +1,21 @@
-let pendingAddresses: string[] | null = null;
+import type { MultiChainName } from './multichain';
 
-export function queueBalanceCheck(addresses: string[]): void {
-  pendingAddresses = addresses;
+type QueuedBalanceCheck = {
+  addresses: string[];
+  chain: MultiChainName;
+};
+
+let pendingBalanceCheck: QueuedBalanceCheck | null = null;
+
+export function queueBalanceCheck(
+  addresses: string[],
+  chain: MultiChainName = 'btc',
+): void {
+  pendingBalanceCheck = { addresses, chain };
 }
 
-export function takeQueuedBalanceCheck(): string[] | null {
-  const addresses = pendingAddresses;
-  pendingAddresses = null;
-  return addresses;
+export function takeQueuedBalanceCheck(): QueuedBalanceCheck | null {
+  const pending = pendingBalanceCheck;
+  pendingBalanceCheck = null;
+  return pending;
 }

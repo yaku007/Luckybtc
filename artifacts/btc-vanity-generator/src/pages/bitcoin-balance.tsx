@@ -121,16 +121,17 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    const addresses = takeQueuedBalanceCheck();
-    if (!addresses) return;
+    const queued = takeQueuedBalanceCheck();
+    if (!queued) return;
     if (!inputRef.current) {
       setStatus('error');
       setNotice('Could not load the generated addresses into the balance checker.');
       return;
     }
-    inputRef.current.value = addresses.join('\n');
+    inputRef.current.value = queued.addresses.join('\n');
+    setChain(queued.chain);
     setFileName('');
-    void startCheck();
+    void startCheck(queued.chain);
   }, [active]);
 
   async function loadFile(file: File | undefined) {
@@ -156,13 +157,13 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
     setFundedAddresses([]);
   }
 
-  async function startCheck() {
+  async function startCheck(selectedChain: MultiChainName = chain) {
     const rawInput = inputRef.current?.value ?? '';
     const entries = rawInput.split(/[\s,;]+/).filter(Boolean);
     const uniqueEntries = [...new Set(entries)];
     const duplicateCount = entries.length - uniqueEntries.length;
     if (uniqueEntries.length === 0) {
-      setNotice(chain === 'btc' ? 'Paste or upload Bitcoin addresses to check.' : `Paste or upload ${MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label ?? 'chain'} addresses to check.`);
+      setNotice(selectedChain === 'btc' ? 'Paste or upload Bitcoin addresses to check.' : `Paste or upload ${MULTI_CHAIN_OPTIONS.find((option) => option.id === selectedChain)?.label ?? 'chain'} addresses to check.`);
       return;
     }
     if (uniqueEntries.length > MAX_ADDRESSES) {
@@ -170,7 +171,7 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
       return;
     }
 
-    if (chain !== 'btc') {
+    if (selectedChain !== 'btc') {
       const validAddresses = uniqueEntries.filter((address) => isValidEvmAddress(address));
       const rejected = uniqueEntries.length - validAddresses.length;
       setStatus('preparing');
@@ -181,7 +182,7 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
       setTotalAddresses(validAddresses.length);
       if (validAddresses.length === 0) {
         setStatus('error');
-        setNotice(`No valid ${MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label ?? 'EVM'} addresses were found in that list.`);
+        setNotice(`No valid ${MULTI_CHAIN_OPTIONS.find((option) => option.id === selectedChain)?.label ?? 'EVM'} addresses were found in that list.`);
         return;
       }
 
@@ -197,7 +198,7 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
         while (!controller.signal.aborted && nextIndex < validAddresses.length) {
           const batch = validAddresses.slice(nextIndex, nextIndex + 25);
           nextIndex += batch.length;
-          const result = await fetchEvmBalanceBatch(chain, batch, controller.signal);
+          const result = await fetchEvmBalanceBatch(selectedChain, batch, controller.signal);
           funded.push(...result.map((entry) => ({ address: entry.address, balanceWei: entry.balanceWei })));
           checked += batch.length;
           setCheckedCount(checked);

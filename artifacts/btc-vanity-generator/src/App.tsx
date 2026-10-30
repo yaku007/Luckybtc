@@ -311,12 +311,11 @@ function Home() {
     if (
       candidateRecords.length === 0 ||
       searching ||
-      autoResumePending ||
-      (generatedOnly && chain !== 'btc')
+      autoResumePending
     ) {
       return;
     }
-    queueBalanceCheck(candidateRecords.map((record) => record.address));
+    queueBalanceCheck(candidateRecords.map(getCandidateAddress), chain);
     setLocation('/balance-check');
   };
 
@@ -793,23 +792,21 @@ function Home() {
               <div className="history-table-wrap">
                 <table className="history-table">
                   <thead>
-                    <tr><th scope="col">Candidate</th><th scope="col">{MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} address</th><th scope="col">Private key · WIF</th></tr>
+                    <tr><th scope="col">Candidate</th><th scope="col">{MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} address</th><th scope="col">{chain === 'btc' ? 'Private key · WIF' : 'Private key · Hex'}</th></tr>
                   </thead>
                   <tbody>
                     {visibleHistory.map((record) => (
                       <tr key={record.index} data-testid={`row-candidate-${record.index}`}>
                         <td>{record.index.toLocaleString()}</td>
                         <td><code data-testid={`value-address-${record.index}`}>{getCandidateAddress(record)}</code></td>
-                        <td><code data-testid={`value-private-key-${record.index}`}>{record.privateKeyWif}</code></td>
+                        <td><code data-testid={`value-private-key-${record.index}`}>{chain === 'btc' ? record.privateKeyWif : record.privateKeyHex}</code></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <div className="history-pagination">
-                {chain === 'btc' && (
-                  <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
-                )}
+                <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
                 <button className="small-button download-addresses-button" type="button" onClick={() => void copyAllAddresses()} data-testid="button-copy-all-addresses"><Copy aria-hidden="true" /> Copy all addresses</button>
                 <button className="small-button download-addresses-button" type="button" onClick={() => downloadAddresses('csv')} data-testid="button-download-addresses-csv"><Download aria-hidden="true" /> Download addresses CSV</button>
                 <button className="small-button download-addresses-button" type="button" onClick={() => downloadAddresses('txt')} data-testid="button-download-addresses-txt"><Download aria-hidden="true" /> Download addresses TXT</button>
