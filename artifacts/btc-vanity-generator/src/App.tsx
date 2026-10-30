@@ -278,6 +278,35 @@ function Home() {
     try { await navigator.clipboard.writeText(value); setNotice(`${label} copied to clipboard.`); } catch { setNotice('Clipboard access is unavailable in this browser.'); }
   };
 
+  const copyAllAddresses = async () => {
+    if (candidateRecords.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(candidateRecords.map(getCandidateAddress).join('\n'));
+      setNotice(`Copied all ${candidateRecords.length.toLocaleString()} addresses. Private keys were not copied.`);
+    } catch {
+      setNotice('Clipboard access is unavailable in this browser.');
+    }
+  };
+
+  const downloadAddresses = (format: 'csv' | 'txt') => {
+    if (candidateRecords.length === 0) return;
+    const addresses = candidateRecords.map(getCandidateAddress);
+    const content = format === 'csv'
+      ? `\uFEFF${addresses.map((address) => `"${address.replace(/"/g, '""')}"`).join('\r\n')}`
+      : `${addresses.join('\n')}\n`;
+    const file = new Blob([content], {
+      type: format === 'csv' ? 'text/csv;charset=utf-8;' : 'text/plain;charset=utf-8;',
+    });
+    const fileUrl = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = `${chain}-addresses-${new Date().toISOString().slice(0, 10)}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(fileUrl), 0);
+  };
+
   const checkGeneratedBalances = () => {
     if (
       candidateRecords.length === 0 ||
@@ -305,6 +334,21 @@ function Home() {
     setCandidateRecords([]);
     setHistoryPage(0);
   };
+
+  useEffect(() => {
+    if (!autoResumePending) return;
+    const timeout = window.setTimeout(() => {
+      setAutoResumePending(false);
+      if (!formRef.current) {
+        clearRangeResumeSettings();
+        setAutoResumeEnabled(false);
+        setNotice('The saved range could not be restarted in this tab.');
+        return;
+      }
+      formRef.current.requestSubmit();
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [autoResumePending]);
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -345,12 +389,24 @@ function Home() {
       setNotice('Enter a valid low/high range before generating addresses.');
       return;
     }
+    if (generateOnly && candidateRecords.length >= MAX_RECORDED_RANGE_CANDIDATES) {
+      setSearchStatus('limit');
+      setNotice(`The ${MAX_RECORDED_RANGE_CANDIDATES.toLocaleString()}-row display limit has been reached. Edit the range to start a new list.`);
+      setCanContinueRange(false);
+      return;
+    }
 
     const isContinuation = generateOnly && canContinueRange && Boolean(continuationOriginStart) && Boolean(continuationBatchSize);
     const runBatchSize = generateOnly ? (isContinuation ? BigInt(continuationBatchSize) : selectedRangeSize!) : 0n;
     const runOriginStart = isContinuation ? continuationOriginStart : rangeStart;
     const existingRecordCount = isContinuation ? candidateRecords.length : 0;
     const candidateLimit = MAX_RECORDED_RANGE_CANDIDATES - existingRecordCount;
+    if (generateOnly && candidateLimit <= 0) {
+      setSearchStatus('limit');
+      setNotice(`The ${MAX_RECORDED_RANGE_CANDIDATES.toLocaleString()}-row display limit has been reached. Edit the range to start a new list.`);
+      setCanContinueRange(false);
+      return;
+    }
 
     const rangeWidth = Math.max(rangeStart.replace(/^0x/i, '').length, rangeEnd.replace(/^0x/i, '').length);
     const rangeResumeSaved = generateOnly ? saveRangeResumeSettings({ format, startHex: runOriginStart, endHex: rangeEnd, batchSize: runBatchSize.toString() }) : false;
@@ -420,6 +476,58 @@ function Home() {
           setSearchStatus('exhausted');
           setNotice('The entire selected range was checked; no match.');
           worker.terminate();
+        } else if (message.type === 'history-limit') {
+          const runStart = parseRangeHex(rangeStart);
+          const lastGenerated = runStart === null
+            ? null
+            : runStart + BigInt(message.attempts) - 1n;
+          if (generateOnly && lastGenerated !== null) {
+            setAutoResumeEnabled(saveRangeResumeSettings({
+              format,
+              startHex: runOriginStart,
+              endHex: formatRangeHex(lastGenerated, rangeWidth),
+              batchSize: runBatchSize.toString(),
+            }));
+            setHistoryPage(Math.floor(
+              Math.max(0, existingRecordCount + message.attempts - 1) / historyPageSize,
+            ));
+          }
+          setCanContinueRange(false);
+          setSearchStatus('limit');
+          setNotice(`Stopped at the ${message.limit.toLocaleString()}-row safety limit. The generated rows remain visible; edit the range to start a new list.`);
+          worker.terminate();
+        } else if (message.type === 'generated') {
+          const totalRecordCount = existingRecordCount + message.attempts;
+          setProgressPercent(100);
+          if (totalRecordCount >= MAX_RECORDED_RANGE_CANDIDATES) {
+            setCanContinueRange(false);
+            setSearchStatus('limit');
+            setNotice(`Generated ${totalRecordCount.toLocaleString()} addresses and private keys. The ${MAX_RECORDED_RANGE_CANDIDATES.toLocaleString()}-row display limit has been reached.`);
+            setHistoryPage(Math.floor((totalRecordCount - 1) / historyPageSize));
+          } else {
+            const nextRange = getNextRange(rangeEnd, runBatchSize, rangeWidth);
+            if (nextRange) {
+              setRangeStart(nextRange.startHex);
+              setRangeEnd(nextRange.endHex);
+              setCanContinueRange(true);
+              setContinuationOriginStart(runOriginStart);
+              setContinuationBatchSize(runBatchSize.toString());
+              setSearchStatus('generated');
+              setNotice(`Generated ${message.attempts.toLocaleString()} addresses and private keys. Next block: ${nextRange.startHex}–${nextRange.endHex}.`);
+              if (autoContinueRangeRef.current) setAutoResumePending(true);
+              setHistoryPage(isContinuation
+                ? Math.floor((totalRecordCount - 1) / historyPageSize)
+                : 0);
+            } else {
+              setCanContinueRange(false);
+              setSearchStatus('generated');
+              setNotice('Generated the final block. The maximum valid private key has been reached.');
+              setHistoryPage(isContinuation
+                ? Math.floor((totalRecordCount - 1) / historyPageSize)
+                : 0);
+            }
+          }
+          worker.terminate();
         } else if (message.type === 'stopped') {
           setSearchStatus('stopped');
           setNotice('Search stopped by user.');
@@ -460,6 +568,7 @@ function Home() {
 
   const formattedPrice = price === null ? '—' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price);
   const multiChainAddress = multiChainKey.trim() ? (() => { try { return getMultiChainAddress(multiChainKey, multiChainChain); } catch { return ''; } })() : '';
+  const isGeneratingRangeOnly = mode === 'range' && !target.trim() && !exactTarget.trim();
 
   return (
     <div className="app-shell">
@@ -590,12 +699,24 @@ function Home() {
                   <input type="checkbox" disabled={searching} checked={rangeAccepted} onChange={(event) => setRangeAccepted(event.target.checked)} />
                   <span>I understand this scan displays every checked address and full WIF private key here.</span>
                 </label>
+                <label className="confirm-row">
+                  <input
+                    type="checkbox"
+                    checked={autoContinueRange}
+                    onChange={(event) => {
+                      autoContinueRangeRef.current = event.target.checked;
+                      setAutoContinueRange(event.target.checked);
+                    }}
+                  />
+                  <span>Automatically generate the next same-size block when this block finishes.</span>
+                </label>
+                {autoResumeEnabled && <p className="hint" role="status">Automatic restart is enabled for this tab.</p>}
               </>
             )}
 
             <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)}>
               {searching ? <CircleAlert aria-hidden="true" /> : <Fingerprint aria-hidden="true" />}
-              {searching ? 'Stop search' : 'Start local search'}
+              {searching ? 'Stop search' : isGeneratingRangeOnly ? canContinueRange ? 'Generate next block' : 'Generate all addresses' : 'Start local search'}
             </button>
             {notice && <div className="range-warning" role="status">{notice}</div>}
           </form>
@@ -666,16 +787,20 @@ function Home() {
                 </div>
                 <div className="history-page-label">Page {historyPage + 1} of {historyPageCount}</div>
               </div>
+              <div className="history-warning" role="alert">
+                These rows contain full private keys. Anyone who sees or copies one can spend funds sent to its address. The generated list is only held in memory and clears when the tab closes.
+              </div>
               <div className="history-table-wrap">
                 <table className="history-table">
                   <thead>
-                    <tr><th scope="col">Candidate</th><th scope="col">{MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} address</th></tr>
+                    <tr><th scope="col">Candidate</th><th scope="col">{MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} address</th><th scope="col">Private key · WIF</th></tr>
                   </thead>
                   <tbody>
                     {visibleHistory.map((record) => (
                       <tr key={record.index} data-testid={`row-candidate-${record.index}`}>
                         <td>{record.index.toLocaleString()}</td>
                         <td><code data-testid={`value-address-${record.index}`}>{getCandidateAddress(record)}</code></td>
+                        <td><code data-testid={`value-private-key-${record.index}`}>{record.privateKeyWif}</code></td>
                       </tr>
                     ))}
                   </tbody>
@@ -685,6 +810,9 @@ function Home() {
                 {chain === 'btc' && (
                   <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
                 )}
+                <button className="small-button download-addresses-button" type="button" onClick={() => void copyAllAddresses()} data-testid="button-copy-all-addresses"><Copy aria-hidden="true" /> Copy all addresses</button>
+                <button className="small-button download-addresses-button" type="button" onClick={() => downloadAddresses('csv')} data-testid="button-download-addresses-csv"><Download aria-hidden="true" /> Download addresses CSV</button>
+                <button className="small-button download-addresses-button" type="button" onClick={() => downloadAddresses('txt')} data-testid="button-download-addresses-txt"><Download aria-hidden="true" /> Download addresses TXT</button>
                 {historyPageCount > 1 && <>
                   <button className="small-button" type="button" disabled={historyPage === 0} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))}>Earlier addresses</button>
                   <button className="small-button" type="button" disabled={historyPage >= historyPageCount - 1} onClick={() => setHistoryPage((page) => Math.min(historyPageCount - 1, page + 1))}>Later addresses</button>
