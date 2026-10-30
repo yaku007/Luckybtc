@@ -6,7 +6,6 @@ import {
   PRIVATE_KEY_LIMIT,
   privateKeyFromRangeValue,
   randomPrivateKey,
-  type AddressFormat,
 } from "./bitcoin";
 import {
   CANDIDATE_BATCH_SIZE,
@@ -143,7 +142,7 @@ worker.onmessage = (event) => {
       };
 
       while (!stopRequested) {
-        for (let count = 0; count < 3000 && !stopRequested; count += 1) {
+        for (let count = 0; count < 500 && !stopRequested; count += 1) {
           if (options.mode === "range" && cursor > end) {
             flushCandidates();
             reportEnd(

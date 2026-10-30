@@ -8,7 +8,7 @@ export default function FinderPage() {
   const [startHex, setStartHex] = useState('1');
   const [endHex, setEndHex] = useState('FFFFF');
   const [xpub, setXpub] = useState('');
-  const [chain, setChain] = useState<MultiChainName>('eth');
+  const [chain, setChain] = useState<MultiChainName>('btc');
   const [startIndex, setStartIndex] = useState('0');
   const [endIndex, setEndIndex] = useState('1000');
   const [targetAddress, setTargetAddress] = useState('');
@@ -116,10 +116,12 @@ export default function FinderPage() {
       }
     };
 
+    // هنا زدنا chain باش الـ Worker يعرف فين يقلب
     worker.postMessage({
       startHex,
       endHex,
       targetAddress,
+      chain, 
     });
   }
 
@@ -127,7 +129,7 @@ export default function FinderPage() {
     <main className="page-wrap finder-page">
       <section className="intro">
         <div className="eyebrow">
-          {mode === 'hd' ? 'MULTICHAIN HD ADDRESS FINDER' : 'BITCOIN ADDRESS FINDER (BRUTE FORCE)'}
+          {mode === 'hd' ? 'MULTICHAIN HD ADDRESS FINDER' : 'MULTICHAIN ADDRESS FINDER (BRUTE FORCE)'}
         </div>
         <h1>{mode === 'hd' ? 'HD Address Finder' : 'Find Private Key by Address'}</h1>
         <p className="intro-copy">
@@ -153,7 +155,7 @@ export default function FinderPage() {
               }}
               disabled={searching}
             >
-              <option value="range">Bitcoin private-key range</option>
+              <option value="range">Private-key range (Brute Force)</option>
               <option value="hd">HD address lookup (xpub)</option>
             </select>
           </label>
@@ -204,24 +206,31 @@ export default function FinderPage() {
                   <input type="number" min="0" max="2147483647" value={endIndex} onChange={(event) => setEndIndex(event.target.value)} disabled={searching} required />
                 </label>
               </div>
-              <p className="finder-note">
-                Use a public xpub for the selected chain. EVM chains expect an account-level xpub and derive <code>/0/index</code>; Bitcoin keeps its existing derivation path. Private extended keys are rejected, and matches never reveal private keys.
-              </p>
             </>
           ) : (
             <>
-              <label className="finder-field">
-                <span>Address to find</span>
-                <input
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={targetAddress}
-                  onChange={(event) => setTargetAddress(event.target.value)}
-                  placeholder="1... or bc1q..."
-                  disabled={searching}
-                  required
-                />
-              </label>
+              <div className="finder-index-row">
+                <label className="finder-field">
+                  <span>Chain</span>
+                  <select value={chain} onChange={(event) => setChain(event.target.value as MultiChainName)} disabled={searching}>
+                    {MULTI_CHAIN_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="finder-field">
+                  <span>Address to find</span>
+                  <input
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={targetAddress}
+                    onChange={(event) => setTargetAddress(event.target.value)}
+                    placeholder={chain === 'btc' ? '1... or bc1q...' : '0x...'}
+                    disabled={searching}
+                    required
+                  />
+                </label>
+              </div>
 
               <div className="finder-index-row">
                 <label className="finder-field">
@@ -262,13 +271,14 @@ export default function FinderPage() {
           ) : (
             <div className="finder-match">
               <div className="section-kicker">Match found</div>
+              <p><strong>Chain:</strong> {MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label}</p>
               <p><strong>Address:</strong> {match.address}</p>
               <p><strong>Private Key (Hex):</strong> {match.privateKeyHex}</p>
-              <p><strong>Private Key (WIF):</strong> {match.privateKeyWif}</p>
+              {chain === 'btc' && <p><strong>Private Key (WIF):</strong> {match.privateKeyWif}</p>}
             </div>
           )
         )}
       </section>
     </main>
   );
-}
+    }

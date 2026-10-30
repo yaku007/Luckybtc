@@ -72,15 +72,9 @@ const MAX_CPU_WORKERS = 32;
 type GeneratedCandidateRecord = CandidateRecord & { privateKeyHex: string };
 
 function getMaxCpuWorkers(): number {
-  const reportedCores =
-    typeof navigator === 'undefined' ? 2 : navigator.hardwareConcurrency;
-  const availableCores =
-    Number.isInteger(reportedCores) && reportedCores > 0 ? reportedCores : 2;
-  
-  // حيلة: إلا كان المتصفح كيعطي 4، غادي نعطيو 8 باش نستغلو السرعة
-  // (تقدر تبدل 8 بالرقم اللي بغيتي، ولكن ماتفوتش 16 باش ماتسخنش التيليفون بزاف)
+  const reportedCores = typeof navigator === 'undefined' ? 2 : navigator.hardwareConcurrency;
+  const availableCores = Number.isInteger(reportedCores) && reportedCores > 0 ? reportedCores : 2;
   const optimizedCores = Math.max(availableCores, 8); 
-  
   return Math.max(1, Math.min(optimizedCores, MAX_CPU_WORKERS));
 }
 
@@ -113,8 +107,7 @@ function parseRangeResumeSettings(value: unknown): RangeResumeSettings | null {
   if (start < 1n || end < start || end >= PRIVATE_KEY_LIMIT) return null;
   const fallbackBatchSize = end - start + 1n;
   const storedBatchSize =
-    typeof settings.batchSize === 'string' &&
-    /^\d{1,78}$/.test(settings.batchSize)
+    typeof settings.batchSize === 'string' && /^\d{1,78}$/.test(settings.batchSize)
       ? BigInt(settings.batchSize)
       : fallbackBatchSize;
   if (storedBatchSize < 1n || storedBatchSize >= PRIVATE_KEY_LIMIT) return null;
@@ -159,126 +152,39 @@ function formatRangeHex(value: bigint, width: number): string {
   return value.toString(16).padStart(width, '0');
 }
 
-function SiteHeader({
-  activePage,
-  children,
-}: {
-  activePage:
-    | 'generator'
-    | 'puzzle'
-    | 'balance'
-    | 'range-lookup'
-    | 'finder'
-    | 'self-test';
-  children: ReactNode;
-}) {
+function SiteHeader({ activePage, children }: { activePage: 'generator' | 'puzzle' | 'balance' | 'range-lookup' | 'finder' | 'self-test'; children: ReactNode; }) {
   return (
     <header className="topbar">
-      <Link href="/" className="brand" data-testid="link-brand-home" aria-label="LUCKY BTC home">
-        <span className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 40 40" fill="none">
-            <path d="M8 12h10M13 12v16M8 28h10" />
-            <path d="M31 13c-2.2-1.6-7.3-1.9-9.8.3-3 2.6-.5 5.2 4.2 6.2 4.8 1 6.4 3.4 4.1 6.1-2.3 2.9-8.1 3-11.3 1.3" />
-          </svg>
-        </span>
-        <span>LUCKY BTC</span>
-      </Link>
-      <nav className="site-nav" aria-label="Main navigation">
-        <Link
-          href="/"
-          className={`site-nav-link ${activePage === 'generator' ? 'active' : ''}`}
-          aria-current={activePage === 'generator' ? 'page' : undefined}
-          data-testid="link-vanity-generator"
-        >
-          Generator
-        </Link>
-        <Link
-          href="/bitcoin-puzzle"
-          className={`site-nav-link ${activePage === 'puzzle' ? 'active' : ''}`}
-          aria-current={activePage === 'puzzle' ? 'page' : undefined}
-          data-testid="link-bitcoin-puzzle"
-        >
-          Bitcoin Puzzle
-        </Link>
-        <Link
-          href="/balance-check"
-          className={`site-nav-link ${activePage === 'balance' ? 'active' : ''}`}
-          aria-current={activePage === 'balance' ? 'page' : undefined}
-          data-testid="link-balance-check"
-        >
-          Balance Check
-        </Link>
-        <Link
-          href="/range-lookup"
-          className={`site-nav-link ${activePage === 'range-lookup' ? 'active' : ''}`}
-          aria-current={activePage === 'range-lookup' ? 'page' : undefined}
-          data-testid="link-range-lookup"
-        >
-          Range Lookup
-        </Link>
-        <Link
-          href="/finder"
-          className={`site-nav-link ${activePage === 'finder' ? 'active' : ''}`}
-          aria-current={activePage === 'finder' ? 'page' : undefined}
-          data-testid="link-hd-finder"
-        >
-          HD Finder
-        </Link>
-        <Link
-          href="/self-test"
-          className={`site-nav-link ${activePage === 'self-test' ? 'active' : ''}`}
-          aria-current={activePage === 'self-test' ? 'page' : undefined}
-          data-testid="link-self-test"
-        >
-          Self-test
-        </Link>
+      <Link href="/" className="brand"><span className="brand-mark"><svg viewBox="0 0 40 40" fill="none"><path d="M8 12h10M13 12v16M8 28h10" /><path d="M31 13c-2.2-1.6-7.3-1.9-9.8.3-3 2.6-.5 5.2 4.2 6.2 4.8 1 6.4 3.4 4.1 6.1-2.3 2.9-8.1 3-11.3 1.3" /></svg></span><span>LUCKY BTC</span></Link>
+      <nav className="site-nav">
+        <Link href="/" className={`site-nav-link ${activePage === 'generator' ? 'active' : ''}`}>Generator</Link>
+        <Link href="/bitcoin-puzzle" className={`site-nav-link ${activePage === 'puzzle' ? 'active' : ''}`}>Bitcoin Puzzle</Link>
+        <Link href="/balance-check" className={`site-nav-link ${activePage === 'balance' ? 'active' : ''}`}>Balance Check</Link>
+        <Link href="/range-lookup" className={`site-nav-link ${activePage === 'range-lookup' ? 'active' : ''}`}>Range Lookup</Link>
+        <Link href="/finder" className={`site-nav-link ${activePage === 'finder' ? 'active' : ''}`}>HD Finder</Link>
+        <Link href="/self-test" className={`site-nav-link ${activePage === 'self-test' ? 'active' : ''}`}>Self-test</Link>
       </nav>
       <div className="top-meta">{children}</div>
     </header>
   );
 }
 
-function getNextRange(
-  endHex: string,
-  batchSize: bigint,
-  width: number,
-): { startHex: string; endHex: string } | null {
+function getNextRange(endHex: string, batchSize: bigint, width: number): { startHex: string; endHex: string } | null {
   const end = parseRangeHex(endHex);
   if (end === null) return null;
   const nextStart = end + 1n;
   const maximumKey = PRIVATE_KEY_LIMIT - 1n;
   if (nextStart > maximumKey) return null;
   const nextEnd = nextStart + batchSize - 1n;
-  return {
-    startHex: formatRangeHex(nextStart, width),
-    endHex: formatRangeHex(nextEnd > maximumKey ? maximumKey : nextEnd, width),
-  };
+  return { startHex: formatRangeHex(nextStart, width), endHex: formatRangeHex(nextEnd > maximumKey ? maximumKey : nextEnd, width) };
 }
 
 function saveRangeResumeSettings(settings: RangeResumeSettings): boolean {
-  try {
-    window.sessionStorage.setItem(
-      RANGE_RESUME_STORAGE_KEY,
-      JSON.stringify(settings),
-    );
-    return true;
-  } catch {
-    try {
-      window.sessionStorage.removeItem(RANGE_RESUME_STORAGE_KEY);
-    } catch {
-      // Storage is unavailable; the caller reports that auto-resume could not be saved.
-    }
-    return false;
-  }
+  try { window.sessionStorage.setItem(RANGE_RESUME_STORAGE_KEY, JSON.stringify(settings)); return true; } catch { return false; }
 }
 
 function clearRangeResumeSettings(): boolean {
-  try {
-    window.sessionStorage.removeItem(RANGE_RESUME_STORAGE_KEY);
-    return true;
-  } catch {
-    return false;
-  }
+  try { window.sessionStorage.removeItem(RANGE_RESUME_STORAGE_KEY); return true; } catch { return false; }
 }
 
 function Home() {
@@ -287,48 +193,25 @@ function Home() {
   const [cpuWorkers, setCpuWorkers] = useState(maxCpuWorkers);
   const [resumeLoad] = useState(readRangeResumeSettings);
   const initialResume = resumeLoad.settings;
-  const [mode, setMode] = useState<'secure' | 'range'>(() =>
-    initialResume ? 'range' : 'secure',
-  );
+
+  const [mode, setMode] = useState<'secure' | 'range'>(() => initialResume ? 'range' : 'secure');
   const [target, setTarget] = useState('');
   const [exactTarget, setExactTarget] = useState('');
   const [patternPosition, setPatternPosition] = useState<'prefix' | 'suffix'>('prefix');
-  const [format, setFormat] = useState<AddressFormat>(
-    () => initialResume?.format ?? 'legacy',
-  );
-  const [rangeStart, setRangeStart] = useState(
-    () => initialResume?.startHex ?? '',
-  );
+  const [format, setFormat] = useState<AddressFormat>(() => initialResume?.format ?? 'legacy');
+  const [chain, setChain] = useState<MultiChainName>('btc');
+
+  const [rangeStart, setRangeStart] = useState(() => initialResume?.startHex ?? '');
   const [rangeEnd, setRangeEnd] = useState(() => initialResume?.endHex ?? '');
-  const [continuationOriginStart, setContinuationOriginStart] = useState(
-    () => initialResume?.startHex ?? '',
-  );
-  const [continuationBatchSize, setContinuationBatchSize] = useState(
-    () => initialResume?.batchSize ?? '',
-  );
-  const [canContinueRange, setCanContinueRange] = useState(
-    Boolean(initialResume),
-  );
+  const [continuationOriginStart, setContinuationOriginStart] = useState(() => initialResume?.startHex ?? '');
+  const [continuationBatchSize, setContinuationBatchSize] = useState(() => initialResume?.batchSize ?? '');
+  const [canContinueRange, setCanContinueRange] = useState(Boolean(initialResume));
   const [rangeAccepted, setRangeAccepted] = useState(Boolean(initialResume));
   const [autoContinueRange, setAutoContinueRange] = useState(true);
-  const [autoResumeEnabled, setAutoResumeEnabled] = useState(
-    Boolean(initialResume),
-  );
-  const [autoResumePending, setAutoResumePending] = useState(
-    Boolean(initialResume),
-  );
+  const [autoResumeEnabled, setAutoResumeEnabled] = useState(Boolean(initialResume));
+  const [autoResumePending, setAutoResumePending] = useState(Boolean(initialResume));
   const [notice, setNotice] = useState('');
-  const [searchStatus, setSearchStatus] = useState<
-    | 'ready'
-    | 'running'
-    | 'stopping'
-    | 'found'
-    | 'stopped'
-    | 'exhausted'
-    | 'generated'
-    | 'limit'
-    | 'error'
-  >('ready');
+  const [searchStatus, setSearchStatus] = useState<'ready' | 'running' | 'stopping' | 'found' | 'stopped' | 'exhausted' | 'generated' | 'limit' | 'error'>('ready');
   const [result, setResult] = useState<SearchResult | null>(null);
   const [candidateRecords, setCandidateRecords] = useState<GeneratedCandidateRecord[]>([]);
   const [generatedOnly, setGeneratedOnly] = useState(false);
@@ -341,25 +224,20 @@ function Home() {
   const [priceChange, setPriceChange] = useState<number | null>(null);
   const [priceState, setPriceState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [multiChainKey, setMultiChainKey] = useState('');
-  const [multiChainChain, setMultiChainChain] = useState<MultiChainName>('btc');
+  const [multiChainChain, setMultiChainChain] = useState<MultiChainName>('eth');
+
   const formRef = useRef<HTMLFormElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const autoContinueRangeRef = useRef(true);
 
   const searching = searchStatus === 'running' || searchStatus === 'stopping';
   const historyPageSize = 100;
-  const historyPageCount = Math.max(
-    1,
-    Math.ceil(candidateRecords.length / historyPageSize),
-  );
+  const historyPageCount = Math.max(1, Math.ceil(candidateRecords.length / historyPageSize));
   const historyStart = historyPage * historyPageSize;
-  const visibleHistory = candidateRecords.slice(
-    historyStart,
-    historyStart + historyPageSize,
-  );
+  const visibleHistory = candidateRecords.slice(historyStart, historyStart + historyPageSize);
   const getCandidateAddress = (record: GeneratedCandidateRecord) =>
-    generatedOnly && multiChainChain !== 'btc'
-      ? getMultiChainAddress(record.privateKeyHex, multiChainChain)
+    generatedOnly && chain !== 'btc'
+      ? getMultiChainAddress(record.privateKeyHex, chain)
       : record.address;
 
   useEffect(() => {
@@ -367,7 +245,7 @@ function Home() {
     const loadPrice = async () => {
       try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
-        if (!response.ok) throw new Error('Price unavailable');
+        if (!response.ok) throw new Error();
         const result = await response.json();
         if (!active || typeof result?.bitcoin?.usd !== 'number') return;
         setPrice(result.bitcoin.usd);
@@ -379,56 +257,25 @@ function Home() {
     };
     void loadPrice();
     const interval = window.setInterval(loadPrice, 60_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
-  useEffect(
-    () => () => {
+  useEffect(() => () => {
       const activeWorker = workerRef.current;
       if (activeWorker) {
         activeWorker.postMessage({ type: 'stop' });
         window.setTimeout(() => activeWorker.terminate(), 10_000);
       }
       workerRef.current = null;
-    },
-    [],
-  );
+  }, []);
 
   const copyTarget = async () => {
     if (!target) return;
-    try {
-      await navigator.clipboard.writeText(target);
-      setNotice('Search target copied.');
-    } catch {
-      setNotice('Clipboard access is unavailable in this browser.');
-    }
+    try { await navigator.clipboard.writeText(target); setNotice('Search target copied.'); } catch { setNotice('Clipboard access is unavailable in this browser.'); }
   };
 
   const copyValue = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setNotice(`${label} copied to clipboard.`);
-    } catch {
-      setNotice('Clipboard access is unavailable in this browser.');
-    }
-  };
-
-  const copyAllAddresses = async () => {
-    if (candidateRecords.length === 0) return;
-
-    try {
-      await navigator.clipboard.writeText(
-        candidateRecords.map(getCandidateAddress).join('\n'),
-      );
-      setNotice(
-        `Copied all ${candidateRecords.length.toLocaleString()} addresses. Private keys were not copied.`,
-      );
-    } catch {
-      setNotice('Clipboard access is unavailable in this browser.');
-    }
+    try { await navigator.clipboard.writeText(value); setNotice(`${label} copied to clipboard.`); } catch { setNotice('Clipboard access is unavailable in this browser.'); }
   };
 
   const checkGeneratedBalances = () => {
@@ -436,49 +283,12 @@ function Home() {
       candidateRecords.length === 0 ||
       searching ||
       autoResumePending ||
-      (generatedOnly && multiChainChain !== 'btc')
+      (generatedOnly && chain !== 'btc')
     ) {
       return;
     }
     queueBalanceCheck(candidateRecords.map((record) => record.address));
     setLocation('/balance-check');
-  };
-
-  const downloadAddressesCsv = () => {
-    if (candidateRecords.length === 0) return;
-
-    const escapeCsvCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const csv = `\uFEFF${candidateRecords
-      .map((record) => escapeCsvCell(getCandidateAddress(record)))
-      .join('\r\n')}`;
-    const file = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const fileUrl = URL.createObjectURL(file);
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    const chain = generatedOnly ? multiChainChain : 'btc';
-    link.download = `${chain}-addresses-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(fileUrl), 0);
-  };
-
-  const downloadAddressesTxt = () => {
-    if (candidateRecords.length === 0) return;
-
-    const addresses = `${candidateRecords
-      .map(getCandidateAddress)
-      .join('\n')}\n`;
-    const file = new Blob([addresses], { type: 'text/plain;charset=utf-8;' });
-    const fileUrl = URL.createObjectURL(file);
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    const chain = generatedOnly ? multiChainChain : 'btc';
-    link.download = `${chain}-addresses-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(fileUrl), 0);
   };
 
   const disableAutoResume = () => {
@@ -505,100 +315,46 @@ function Home() {
       return;
     }
 
-    const normalizedExactTarget =
-      format === 'segwit' ? exactTarget.trim().toLowerCase() : exactTarget.trim();
-    if (
-      normalizedExactTarget &&
-      !isValidBitcoinAddressTarget(normalizedExactTarget, format)
-    ) {
-      setNotice(
-        format === 'legacy'
-          ? 'Enter a valid mainnet Legacy address beginning with 1.'
-          : 'Enter a valid mainnet Native SegWit address beginning with bc1q.',
-      );
+    const normalizedExactTarget = format === 'segwit' ? exactTarget.trim().toLowerCase() : exactTarget.trim();
+
+    if (chain === 'btc' && normalizedExactTarget && !isValidBitcoinAddressTarget(normalizedExactTarget, format)) {
+      setNotice('Enter a valid mainnet Bitcoin address.');
       return;
     }
 
     const pattern = target.trim();
-    const generateOnly =
-      mode === 'range' && !normalizedExactTarget && !pattern;
+    const generateOnly = mode === 'range' && !normalizedExactTarget && !pattern;
+
+    if (chain !== 'btc' && !generateOnly) {
+      setNotice('Vanity and exact-address searches currently support Bitcoin only. Clear the target and use a custom range to generate addresses for the selected network.');
+      return;
+    }
+
     if (!normalizedExactTarget && !pattern && !generateOnly) {
       setNotice('Enter a prefix or suffix, or paste a full target address.');
       return;
     }
-    if (pattern && !normalizedExactTarget) {
-      const allowed =
-        format === 'legacy'
-          ? /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/
-          : /^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/i;
-      if (!allowed.test(pattern)) {
-        setNotice(
-          format === 'legacy'
-            ? 'Use only valid Base58 characters for a Legacy pattern.'
-            : 'Use only valid Bech32 characters for a Native SegWit pattern.',
-        );
-        return;
-      }
-    }
+
     if (mode === 'range' && !rangeAccepted) {
       setNotice('Confirm the custom-range safety warning before continuing.');
       return;
     }
 
-    const selectedRangeSize = generateOnly
-      ? getRangeSize(rangeStart, rangeEnd)
-      : null;
+    const selectedRangeSize = generateOnly ? getRangeSize(rangeStart, rangeEnd) : null;
     if (generateOnly && selectedRangeSize === null) {
       setNotice('Enter a valid low/high range before generating addresses.');
       return;
     }
-    if (
-      generateOnly &&
-      candidateRecords.length >= MAX_RECORDED_RANGE_CANDIDATES
-    ) {
-      setSearchStatus('limit');
-      setNotice(
-        `The ${MAX_RECORDED_RANGE_CANDIDATES.toLocaleString()}-row display limit has been reached. Edit the range to start a new list.`,
-      );
-      setCanContinueRange(false);
-      return;
-    }
-    const isContinuation =
-      generateOnly &&
-      canContinueRange &&
-      Boolean(continuationOriginStart) &&
-      Boolean(continuationBatchSize);
-    const runBatchSize = generateOnly
-      ? isContinuation
-        ? BigInt(continuationBatchSize)
-        : selectedRangeSize!
-      : 0n;
-    const runOriginStart = isContinuation
-      ? continuationOriginStart
-      : rangeStart;
+
+    const isContinuation = generateOnly && canContinueRange && Boolean(continuationOriginStart) && Boolean(continuationBatchSize);
+    const runBatchSize = generateOnly ? (isContinuation ? BigInt(continuationBatchSize) : selectedRangeSize!) : 0n;
+    const runOriginStart = isContinuation ? continuationOriginStart : rangeStart;
     const existingRecordCount = isContinuation ? candidateRecords.length : 0;
-    const candidateLimit =
-      MAX_RECORDED_RANGE_CANDIDATES - existingRecordCount;
-    if (generateOnly && candidateLimit <= 0) {
-      setSearchStatus('limit');
-      setNotice(
-        `The ${MAX_RECORDED_RANGE_CANDIDATES.toLocaleString()}-row display limit has been reached. Edit the range to start a new list.`,
-      );
-      setCanContinueRange(false);
-      return;
-    }
-    const rangeWidth = Math.max(
-      rangeStart.replace(/^0x/i, '').length,
-      rangeEnd.replace(/^0x/i, '').length,
-    );
-    const rangeResumeSaved = generateOnly
-      ? saveRangeResumeSettings({
-          format,
-          startHex: runOriginStart,
-          endHex: rangeEnd,
-          batchSize: runBatchSize.toString(),
-        })
-      : false;
+    const candidateLimit = MAX_RECORDED_RANGE_CANDIDATES - existingRecordCount;
+
+    const rangeWidth = Math.max(rangeStart.replace(/^0x/i, '').length, rangeEnd.replace(/^0x/i, '').length);
+    const rangeResumeSaved = generateOnly ? saveRangeResumeSettings({ format, startHex: runOriginStart, endHex: rangeEnd, batchSize: runBatchSize.toString() }) : false;
+
     if (!generateOnly) {
       clearRangeResumeSettings();
       setContinuationOriginStart('');
@@ -611,10 +367,6 @@ function Home() {
       setContinuationBatchSize(runBatchSize.toString());
     }
     setCanContinueRange(false);
-    const persistenceNotice =
-      generateOnly && !rangeResumeSaved
-        ? 'This browser blocked tab storage, so this range will not auto-restart after refresh.'
-        : '';
 
     workerRef.current?.terminate();
     setResult(null);
@@ -627,13 +379,10 @@ function Home() {
     setAttempts(0);
     setElapsedMs(0);
     setProgressPercent(mode === 'range' ? 0 : null);
-    setNotice(persistenceNotice);
+    setNotice('');
 
     try {
-      const worker = new Worker(
-        new URL('./lib/vanity-coordinator.worker.ts', import.meta.url),
-        { type: 'module' },
-      );
+      const worker = new Worker(new URL('./lib/vanity-coordinator.worker.ts', import.meta.url), { type: 'module' });
       workerRef.current = worker;
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
         const message = event.data;
@@ -644,7 +393,7 @@ function Home() {
           rememberGeneratedAddressRanges(message.candidates);
           const candidates = message.candidates.map((record) => {
             const privateKeyValue =
-              BigInt(`0x${record.rangeStartHex}`) +
+              BigInt(`0x${rangeStart.replace(/^0x/i, '')}`) +
               BigInt(record.index - existingRecordCount - 1);
             return {
               ...record,
@@ -664,138 +413,37 @@ function Home() {
           setResult(message.result);
           setProgressPercent(100);
           setSearchStatus('found');
-          setNotice(
-            normalizedExactTarget
-              ? 'Exact target found. The search stopped automatically.'
-              : 'Address found. The search stopped automatically.',
-          );
+          setNotice('Target found! The search stopped.');
           worker.terminate();
-          if (workerRef.current === worker) workerRef.current = null;
         } else if (message.type === 'exhausted') {
           setProgressPercent(100);
           setSearchStatus('exhausted');
-          setNotice('The entire selected range was checked; there was no match.');
+          setNotice('The entire selected range was checked; no match.');
           worker.terminate();
-          if (workerRef.current === worker) workerRef.current = null;
-        } else if (message.type === 'history-limit') {
-          if (generateOnly) {
-            const runStart = parseRangeHex(rangeStart);
-            const lastGenerated =
-              runStart === null
-                ? null
-                : runStart + BigInt(message.attempts) - 1n;
-            if (lastGenerated !== null) {
-              setAutoResumeEnabled(
-                saveRangeResumeSettings({
-                  format,
-                  startHex: runOriginStart,
-                  endHex: formatRangeHex(lastGenerated, rangeWidth),
-                  batchSize: runBatchSize.toString(),
-                }),
-              );
-              setProgressPercent(100);
-              setHistoryPage(
-                Math.floor(
-                  Math.max(0, existingRecordCount + message.attempts - 1) /
-                    historyPageSize,
-                ),
-              );
-            }
-          }
-          setCanContinueRange(false);
-          setSearchStatus('limit');
-          setNotice(
-            `Stopped at the ${message.limit.toLocaleString()}-row safety limit. The generated rows remain visible; edit the range to start a new list.`,
-          );
-          worker.terminate();
-          if (workerRef.current === worker) workerRef.current = null;
-        } else if (message.type === 'generated') {
-          const totalRecordCount = existingRecordCount + message.attempts;
-          setProgressPercent(100);
-          if (totalRecordCount >= MAX_RECORDED_RANGE_CANDIDATES) {
-            setCanContinueRange(false);
-            setSearchStatus('limit');
-            setNotice(
-              `Generated ${totalRecordCount.toLocaleString()} addresses and private keys. The ${MAX_RECORDED_RANGE_CANDIDATES.toLocaleString()}-row display limit has been reached.`,
-            );
-            setHistoryPage(
-              Math.floor((totalRecordCount - 1) / historyPageSize),
-            );
-          } else {
-            const nextRange = getNextRange(
-              rangeEnd,
-              runBatchSize,
-              rangeWidth,
-            );
-            if (nextRange) {
-              setRangeStart(nextRange.startHex);
-              setRangeEnd(nextRange.endHex);
-              setCanContinueRange(true);
-              setContinuationOriginStart(runOriginStart);
-              setContinuationBatchSize(runBatchSize.toString());
-              setSearchStatus('generated');
-              setNotice(
-                `Generated ${message.attempts.toLocaleString()} addresses and WIF keys. Next block: ${nextRange.startHex}–${nextRange.endHex}.${persistenceNotice ? ` ${persistenceNotice}` : ''}`,
-              );
-              if (autoContinueRangeRef.current) setAutoResumePending(true);
-              setHistoryPage(
-                isContinuation
-                  ? Math.floor((totalRecordCount - 1) / historyPageSize)
-                  : 0,
-              );
-            } else {
-              setCanContinueRange(false);
-              setSearchStatus('generated');
-              setNotice(
-                `Generated ${message.attempts.toLocaleString()} addresses and WIF keys. The maximum valid Bitcoin private key has been reached.`,
-              );
-              setHistoryPage(
-                isContinuation
-                  ? Math.floor((totalRecordCount - 1) / historyPageSize)
-                  : 0,
-              );
-            }
-          }
-          worker.terminate();
-          if (workerRef.current === worker) workerRef.current = null;
         } else if (message.type === 'stopped') {
           setSearchStatus('stopped');
-          setNotice('Search stopped. No result was found before stopping.');
+          setNotice('Search stopped by user.');
           worker.terminate();
-          if (workerRef.current === worker) workerRef.current = null;
         } else if (message.type === 'error') {
-          clearRangeResumeSettings();
-          setAutoResumeEnabled(false);
           setSearchStatus('error');
           setNotice(message.message);
           worker.terminate();
-          if (workerRef.current === worker) workerRef.current = null;
         }
       };
+
       worker.onerror = () => {
-        clearRangeResumeSettings();
-        setAutoResumeEnabled(false);
         setSearchStatus('error');
-        setNotice('The local search worker stopped unexpectedly.');
+        setNotice('Worker error.');
         worker.terminate();
-        if (workerRef.current === worker) workerRef.current = null;
       };
+
       setSearchStatus('running');
       worker.postMessage({
         type: 'start',
         mode: mode === 'range' ? 'range' : 'random',
         format,
-        prefix: normalizedExactTarget
-          ? ''
-          : patternPosition === 'prefix'
-            ? format === 'legacy'
-              ? `1${pattern}`
-              : `bc1q${pattern.toLowerCase()}`
-            : '',
-        suffix:
-          normalizedExactTarget || patternPosition === 'prefix'
-            ? ''
-            : pattern,
+        prefix: normalizedExactTarget ? '' : (patternPosition === 'prefix' ? (chain === 'btc' ? `1${pattern}` : '') : ''),
+        suffix: normalizedExactTarget || patternPosition === 'prefix' ? '' : pattern,
         targetAddress: normalizedExactTarget || undefined,
         startHex: rangeStart,
         endHex: rangeEnd,
@@ -805,48 +453,13 @@ function Home() {
         workerCount: cpuWorkers,
       });
     } catch {
-      clearRangeResumeSettings();
-      setAutoResumeEnabled(false);
       setSearchStatus('error');
-      setNotice('Could not start the local search worker in this browser.');
+      setNotice('Could not start worker.');
     }
   };
 
-  useEffect(() => {
-    if (!resumeLoad.available) {
-      setNotice(
-        'This browser blocked tab storage, so automatic range restart is unavailable.',
-      );
-    }
-  }, [resumeLoad.available]);
-
-  useEffect(() => {
-    if (!autoResumePending) return;
-    const timeout = window.setTimeout(() => {
-      setAutoResumePending(false);
-      if (!formRef.current) {
-        clearRangeResumeSettings();
-        setAutoResumeEnabled(false);
-        setNotice('The saved range could not be restarted in this tab.');
-        return;
-      }
-      formRef.current.requestSubmit();
-    }, 0);
-    return () => window.clearTimeout(timeout);
-  }, [autoResumePending]);
-
-  const formattedPrice = price === null
-    ? '—'
-    : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price);
-  const multiChainAddress = multiChainKey.trim()
-    ? (() => {
-        try {
-          return getMultiChainAddress(multiChainKey, multiChainChain);
-        } catch {
-          return '';
-        }
-      })()
-    : '';
+  const formattedPrice = price === null ? '—' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(price);
+  const multiChainAddress = multiChainKey.trim() ? (() => { try { return getMultiChainAddress(multiChainKey, multiChainChain); } catch { return ''; } })() : '';
 
   return (
     <div className="app-shell">
@@ -865,52 +478,71 @@ function Home() {
         <section className="intro">
           <div className="eyebrow">A tool for your own keys</div>
           <h1>Make an address<br />that feels like yours.</h1>
-          <p className="intro-copy">Search locally for a Bitcoin address with a pattern you choose. Your keys stay in this browser—never uploaded, never stored.</p>
+          <p className="intro-copy">Search locally for an address with a pattern you choose. Your keys stay in this browser.</p>
         </section>
 
-        <section className="workspace" aria-label="Vanity address search">
+        <section className="workspace" aria-label="Address search">
           <form ref={formRef} className="panel search-panel" onSubmit={handleSearch}>
             <div className="panel-heading">
               <div>
                 <div className="section-kicker"><span className="step-number">01</span> Set your search</div>
                 <div className="subhead">Choose a pattern and the address family to search.</div>
               </div>
-              <div className="mode-switch" role="group" aria-label="Search mode">
-                <button type="button" disabled={searching} className={`mode-option ${mode === 'secure' ? 'active' : ''}`} aria-pressed={mode === 'secure'} data-testid="button-mode-secure" onClick={() => { clearResumePreference(); setMode('secure'); setRangeAccepted(false); setNotice(''); }}>Auto · secure</button>
-                <button type="button" disabled={searching} className={`mode-option ${mode === 'range' ? 'active' : ''}`} aria-pressed={mode === 'range'} data-testid="button-mode-range" onClick={() => { clearResumePreference(); setMode('range'); setNotice(''); }}>Custom range</button>
+              <div className="mode-switch" role="group">
+                <button type="button" disabled={searching} className={`mode-option ${mode === 'secure' ? 'active' : ''}`} onClick={() => { clearResumePreference(); setMode('secure'); setRangeAccepted(false); setNotice(''); }}>Auto · secure</button>
+                <button type="button" disabled={searching} className={`mode-option ${mode === 'range' ? 'active' : ''}`} onClick={() => { clearResumePreference(); setMode('range'); setNotice(''); }}>Custom range</button>
               </div>
             </div>
 
-            <label className="field-label" htmlFor="exact-address">Exact full Bitcoin address <span style={{ color: '#91958f', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <div className="field-grid">
+              <div>
+                <label className="field-label">Blockchain Network</label>
+                <div className="select-wrap">
+                  <select className="select-control" value={chain} disabled={searching} onChange={(event) => { clearResumePreference(); setChain(event.target.value as MultiChainName); }}>
+                    {MULTI_CHAIN_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label} ({option.symbol})</option>
+                    ))}
+                  </select>
+                  <ChevronDown aria-hidden="true" />
+                </div>
+                <p className="hint">Custom-range generation displays addresses for the selected network. Vanity matching remains Bitcoin-only.</p>
+              </div>
+              {chain === 'btc' && (
+                <div>
+                  <label className="field-label">Address format</label>
+                  <div className="select-wrap">
+                    <select className="select-control" value={format} disabled={searching} onChange={(event) => { clearResumePreference(); setFormat(event.target.value as AddressFormat); }}>
+                      <option value="legacy">Legacy · P2PKH (1…)</option>
+                      <option value="segwit">Native SegWit · Bech32 (bc1q…)</option>
+                    </select>
+                    <ChevronDown aria-hidden="true" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <label className="field-label" htmlFor="exact-address">Exact full {chain.toUpperCase()} address (optional)</label>
             <div className="input-row">
               <input
                 id="exact-address"
                 className="target-input"
-                style={{ paddingLeft: 14 }}
                 value={exactTarget}
                 onChange={(event) => { clearResumePreference(); setExactTarget(event.target.value.trim()); }}
                 disabled={searching}
-                placeholder="Paste a complete address to match exactly"
-                autoComplete="off"
-                spellCheck={false}
-                data-testid="input-exact-address"
+                placeholder={`Paste a complete ${chain.toUpperCase()} address to match exactly`}
               />
-              {exactTarget && <button className="small-button" type="button" aria-label="Clear exact address" data-testid="button-clear-exact-address" onClick={() => { clearResumePreference(); setExactTarget(''); }}>Clear</button>}
-            </div>
-            <div className="mode-note" data-testid="note-exact-address">
-              <CircleAlert aria-hidden="true" />
-              <span><strong>An address cannot reveal its private-key range.</strong> With a full target, the app compares generated addresses exactly and stops at a match, but finding a key for a complete address is computationally impractical. For vanity search, leave this blank and enter a short prefix or suffix below.</span>
             </div>
 
             <div className="pattern-label-row">
               <label className="field-label" htmlFor="target-prefix">{patternPosition === 'prefix' ? 'Address starts with' : 'Address ends with'}</label>
-              <div className="pattern-toggle" role="group" aria-label="Pattern position">
-                <button type="button" className={patternPosition === 'prefix' ? 'selected' : ''} disabled={Boolean(exactTarget) || searching} aria-pressed={patternPosition === 'prefix'} onClick={() => setPatternPosition('prefix')} data-testid="button-pattern-prefix">Prefix</button>
-                <button type="button" className={patternPosition === 'suffix' ? 'selected' : ''} disabled={Boolean(exactTarget) || searching} aria-pressed={patternPosition === 'suffix'} onClick={() => setPatternPosition('suffix')} data-testid="button-pattern-suffix">Suffix</button>
+              <div className="pattern-toggle" role="group">
+                <button type="button" className={patternPosition === 'prefix' ? 'selected' : ''} disabled={Boolean(exactTarget) || searching} onClick={() => setPatternPosition('prefix')}>Prefix</button>
+                <button type="button" className={patternPosition === 'suffix' ? 'selected' : ''} disabled={Boolean(exactTarget) || searching} onClick={() => setPatternPosition('suffix')}>Suffix</button>
               </div>
             </div>
             <div className="input-row">
-              {patternPosition === 'prefix' && <span className="target-prefix" aria-hidden="true">{format === 'segwit' ? 'bc1q' : '1'}</span>}
+              {patternPosition === 'prefix' && chain === 'btc' && <span className="target-prefix">{format === 'segwit' ? 'bc1q' : '1'}</span>}
+              {patternPosition === 'prefix' && chain !== 'btc' && <span className="target-prefix">0x</span>}
               <input
                 id="target-prefix"
                 className="target-input"
@@ -918,103 +550,54 @@ function Home() {
                 onChange={(event) => { clearResumePreference(); setTarget(event.target.value.replace(/\s/g, '')); }}
                 disabled={Boolean(exactTarget) || searching}
                 placeholder={patternPosition === 'prefix' ? 'your-pattern' : 'your-ending'}
-                maxLength={format === 'segwit' ? 55 : 25}
-                autoComplete="off"
-                spellCheck={false}
-                data-testid="input-search-target"
+                maxLength={chain === 'btc' && format === 'segwit' ? 55 : 25}
               />
-              {target && <button className="small-button" type="button" aria-label="Copy pattern" data-testid="button-copy-target" onClick={() => void copyTarget()}><Copy /></button>}
             </div>
-            <p className="hint">{exactTarget ? 'Pattern search is paused while an exact address is set.' : mode === 'range' && !target ? 'Leave the pattern and exact address blank to generate every address in the selected range.' : 'Enter the characters after the network prefix. Case-sensitive for legacy addresses.'}</p>
 
             <div className="field-grid">
               <div>
-                <label className="field-label" htmlFor="address-format">Address format</label>
+                <label className="field-label">Key generation</label>
                 <div className="select-wrap">
-                  <select className="select-control" id="address-format" value={format} disabled={searching} onChange={(event) => { clearResumePreference(); setFormat(event.target.value as AddressFormat); }} data-testid="select-address-format">
-                    <option value="legacy">Legacy · P2PKH (1…)</option>
-                    <option value="segwit">Native SegWit · Bech32 (bc1q…)</option>
-                  </select>
-                  <ChevronDown aria-hidden="true" />
-                </div>
-              </div>
-              <div>
-                <label className="field-label" htmlFor="search-method">Key generation</label>
-                <div className="select-wrap">
-                  <select className="select-control" id="search-method" value={mode} disabled={searching} onChange={(event) => { clearResumePreference(); setMode(event.target.value as 'secure' | 'range'); setRangeAccepted(false); }} data-testid="select-key-method">
+                  <select className="select-control" value={mode} disabled={searching} onChange={(event) => { clearResumePreference(); setMode(event.target.value as 'secure' | 'range'); setRangeAccepted(false); }}>
                     <option value="secure">Automatic · no range needed</option>
                     <option value="range">User-defined range</option>
                   </select>
                   <ChevronDown aria-hidden="true" />
                 </div>
               </div>
-              <div className="cpu-worker-control" data-testid="control-cpu-workers">
+              <div className="cpu-worker-control">
                 <div className="cpu-worker-heading">
-                  <label className="field-label" htmlFor="cpu-workers"><Cpu aria-hidden="true" /> CPU workers</label>
-                  <output htmlFor="cpu-workers" data-testid="value-cpu-workers">{cpuWorkers} / {maxCpuWorkers} max</output>
+                  <label className="field-label"><Cpu aria-hidden="true" /> CPU workers</label>
+                  <output>{cpuWorkers} / {maxCpuWorkers} max</output>
                 </div>
-                <input
-                  className="cpu-worker-slider"
-                  id="cpu-workers"
-                  type="range"
-                  min={1}
-                  max={maxCpuWorkers}
-                  step={1}
-                  value={cpuWorkers}
-                  disabled={searching}
-                  onChange={(event) => setCpuWorkers(Number(event.target.value))}
-                  aria-label="Number of CPU workers"
-                  data-testid="input-cpu-workers"
-                />
-                <p className="hint">{cpuWorkers === maxCpuWorkers ? `Using all ${maxCpuWorkers} available CPU worker${maxCpuWorkers === 1 ? '' : 's'} (maximum 32).` : 'Lower this number to leave more CPU capacity for other work.'}</p>
+                <input className="cpu-worker-slider" type="range" min={1} max={maxCpuWorkers} step={1} value={cpuWorkers} disabled={searching} onChange={(event) => setCpuWorkers(Number(event.target.value))} />
               </div>
             </div>
 
-            {mode === 'secure' ? (
-              <div className="mode-note" data-testid="status-secure-mode">
-                <ShieldCheck aria-hidden="true" />
-                <span><strong>Automatic search — no low/high range needed.</strong> The app generates random candidates securely in this browser and stops at the first match. Keep this device private while searching.</span>
-              </div>
-            ) : (
-              <div data-testid="panel-custom-range">
+            {mode === 'range' && (
+              <>
                 <div className="range-fields">
                   <div>
-                    <label className="field-label" htmlFor="range-start">Low private-key bound (hex)</label>
-                    <input className="range-input" id="range-start" disabled={searching} value={rangeStart} onChange={(event) => { clearResumePreference(); setRangeStart(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (start)" autoComplete="off" data-testid="input-range-start" />
+                    <label className="field-label">Low private-key bound (hex)</label>
+                    <input className="range-input" disabled={searching} value={rangeStart} onChange={(event) => { clearResumePreference(); setRangeStart(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (start)" />
                   </div>
                   <div>
-                    <label className="field-label" htmlFor="range-end">High private-key bound (hex)</label>
-                    <input className="range-input" id="range-end" disabled={searching} value={rangeEnd} onChange={(event) => { clearResumePreference(); setRangeEnd(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (end)" autoComplete="off" data-testid="input-range-end" />
+                    <label className="field-label">High private-key bound (hex)</label>
+                    <input className="range-input" disabled={searching} value={rangeEnd} onChange={(event) => { clearResumePreference(); setRangeEnd(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (end)" />
                   </div>
                 </div>
                 <label className="confirm-row">
-                  <input type="checkbox" disabled={searching} checked={rangeAccepted} onChange={(event) => setRangeAccepted(event.target.checked)} data-testid="checkbox-range-risk" />
-                  <span>I understand this scan displays every checked address and full WIF private key here. I will never use these keys to hold funds.</span>
+                  <input type="checkbox" disabled={searching} checked={rangeAccepted} onChange={(event) => setRangeAccepted(event.target.checked)} />
+                  <span>I understand this scan displays every checked address and full WIF private key here.</span>
                 </label>
-                <label className="confirm-row">
-                  <input
-                    type="checkbox"
-                    checked={autoContinueRange}
-                    onChange={(event) => {
-                      const checked = event.target.checked;
-                      autoContinueRangeRef.current = checked;
-                      setAutoContinueRange(checked);
-                    }}
-                    data-testid="checkbox-auto-continue-range"
-                  />
-                  <span>Automatically generate the next same-size block when this block finishes. Turn this off to pause after the current block.</span>
-                </label>
-                {autoResumeEnabled && <p className="hint" role="status" data-testid="status-range-autoresume">Automatic restart is enabled for this tab. Only the original low, last generated high, address format, and block size are saved here; generated addresses and WIF keys are not saved.</p>}
-                <p className="hint">Leave the exact-address and pattern fields blank to generate every key/address from low to high, without looking for a match. The full history stops at 100,000,000,000,000 entries to protect browser memory.</p>
-              </div>
+              </>
             )}
 
-            <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)} data-testid="button-start-search">
+            <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)}>
               {searching ? <CircleAlert aria-hidden="true" /> : <Fingerprint aria-hidden="true" />}
-              {searching ? 'Stop search' : mode === 'range' && !target.trim() && !exactTarget.trim() ? canContinueRange ? 'Generate next block' : 'Generate all addresses' : 'Start local search'}
-              {!searching && <ArrowUpRight aria-hidden="true" />}
+              {searching ? 'Stop search' : 'Start local search'}
             </button>
-            {notice && <div className="range-warning" role="status" data-testid="status-search-notice">{notice}</div>}
+            {notice && <div className="range-warning" role="status">{notice}</div>}
           </form>
 
           <aside className="side-stack">
@@ -1023,72 +606,32 @@ function Home() {
               <ul className="privacy-list">
                 <li><Check aria-hidden="true" /><span>Private keys are created on this device.</span></li>
                 <li><Check aria-hidden="true" /><span>Nothing is sent to a server or saved to an account.</span></li>
-                <li><Check aria-hidden="true" /><span>Keep the result offline and back it up securely.</span></li>
-              </ul>
-            </section>
-
-            <section className="panel price-card" aria-label="Bitcoin price">
-              <h2 className="side-title"><Bitcoin aria-hidden="true" /> BTC / USD</h2>
-              <div className="price-value" data-testid="value-btc-usd">{formattedPrice}</div>
-              {priceChange !== null && <div className="price-change" data-testid="text-btc-change">{priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}% over 24 hours</div>}
-              <div className="price-footer">
-                <span>{priceState === 'ready' ? 'Market reference' : priceState === 'error' ? 'Unable to refresh' : 'Fetching market price'}</span>
-                {priceState === 'error' && <button className="small-button" type="button" data-testid="button-retry-price" onClick={() => { setPriceState('loading'); void fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true').then((response) => { if (!response.ok) throw new Error(); return response.json(); }).then((result) => { if (typeof result?.bitcoin?.usd === 'number') { setPrice(result.bitcoin.usd); setPriceChange(typeof result.bitcoin.usd_24h_change === 'number' ? result.bitcoin.usd_24h_change : null); setPriceState('ready'); } else setPriceState('error'); }).catch(() => setPriceState('error')); }}><RotateCw /> Retry</button>}
-              </div>
-            </section>
-
-            <section className="panel side-panel">
-              <h2 className="side-title"><SlidersHorizontal aria-hidden="true" /> Search, at a glance</h2>
-              <ul className="privacy-list">
-                <li><Sparkles aria-hidden="true" /><span>Longer patterns take exponentially more time.</span></li>
-                <li><Globe2 aria-hidden="true" /><span>Price is a public market reference, not part of key generation.</span></li>
               </ul>
             </section>
           </aside>
         </section>
 
         <section className="panel" aria-label="Multi-chain helper" style={{ marginTop: 18, padding: 22 }}>
-          <div className="section-kicker"><span className="step-number">02</span> Multi-chain address options</div>
-          <div className="subhead" style={{ marginBottom: 12 }}>Choose the chain for generated range addresses, or enter a private key to preview its address. Vanity pattern and exact-address searches remain Bitcoin-only.</div>
+          <div className="section-kicker"><span className="step-number">02</span> Quick multi-chain address helper</div>
+          <div className="subhead" style={{ marginBottom: 12 }}>Preview an address from a private key.</div>
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0,1.3fr) minmax(180px, 0.7fr)', alignItems: 'end' }}>
             <div>
-              <label className="field-label" htmlFor="multichain-key">Private key (32-byte hex)</label>
-              <input
-                id="multichain-key"
-                className="target-input"
-                value={multiChainKey}
-                onChange={(event) => setMultiChainKey(event.target.value.trim())}
-                placeholder="Paste a 64-character hex private key"
-                autoComplete="off"
-                spellCheck={false}
-                style={{ width: '100%', marginTop: 8 }}
-              />
+              <label className="field-label">Private key (32-byte hex)</label>
+              <input className="target-input" value={multiChainKey} onChange={(event) => setMultiChainKey(event.target.value.trim())} placeholder="Paste a 64-character hex private key" />
             </div>
             <div>
-              <label className="field-label" htmlFor="multichain-chain">Generated address chain</label>
-              <div className="select-wrap" style={{ marginTop: 8 }}>
-                <select
-                  id="multichain-chain"
-                  className="select-control"
-                  value={multiChainChain}
-                  onChange={(event) => setMultiChainChain(event.target.value as MultiChainName)}
-                >
-                  {MULTI_CHAIN_OPTIONS.map((chain) => (
-                    <option key={chain.id} value={chain.id}>{chain.label}</option>
-                  ))}
+              <label className="field-label">Chain</label>
+              <div className="select-wrap">
+                <select className="select-control" value={multiChainChain} onChange={(event) => setMultiChainChain(event.target.value as MultiChainName)}>
+                  {MULTI_CHAIN_OPTIONS.map((c) => (<option key={c.id} value={c.id}>{c.label}</option>))}
                 </select>
-                <ChevronDown aria-hidden="true" />
               </div>
             </div>
           </div>
           {multiChainKey && (
-            <div style={{ marginTop: 16, padding: 14, borderRadius: 10, border: '1px solid hsl(var(--border))', background: '#111113', overflowWrap: 'anywhere' }}>
-              <div className="result-label">Derived {MULTI_CHAIN_OPTIONS.find((chain) => chain.id === multiChainChain)?.label ?? 'Address'}</div>
-              {multiChainAddress ? (
-                <div className="address-text" style={{ marginTop: 8, fontSize: 15 }}>{multiChainAddress}</div>
-              ) : (
-                <div className="range-warning" role="status" style={{ marginTop: 8 }}>Enter a valid 32-byte private key to derive the address for this chain.</div>
-              )}
+            <div style={{ marginTop: 16, padding: 14, borderRadius: 10, border: '1px solid #333', background: '#111113', overflowWrap: 'anywhere' }}>
+              <div className="result-label">Derived {MULTI_CHAIN_OPTIONS.find((c) => c.id === multiChainChain)?.label}</div>
+              {multiChainAddress ? <div className="address-text" style={{ marginTop: 8 }}>{multiChainAddress}</div> : <div className="range-warning">Invalid private key.</div>}
             </div>
           )}
         </section>
@@ -1096,90 +639,64 @@ function Home() {
         <section className="panel result-panel" aria-label="Search result">
           <div className="result-head">
             <div>
-              <div className="section-kicker"><span className="step-number">02</span> Search status &amp; result</div>
-              <div className="subhead">Range searches show each checked address and its private key in the history below.</div>
+              <div className="section-kicker"><span className="step-number">03</span> Search status &amp; result</div>
             </div>
-              <div className={`status-pill ${searching ? 'status-running' : ''}`} data-testid="status-search"><span className="status-dot" /> {searchStatus === 'ready' ? 'READY · NOT RUNNING' : searchStatus === 'running' ? 'SEARCHING LOCALLY' : searchStatus === 'stopping' ? 'STOPPING SEARCH' : searchStatus === 'found' ? 'MATCH FOUND' : searchStatus === 'exhausted' || searchStatus === 'generated' ? 'RANGE COMPLETE' : searchStatus === 'stopped' ? 'SEARCH STOPPED' : searchStatus === 'limit' ? 'HISTORY LIMIT REACHED' : 'SEARCH ERROR'}</div>
+            <div className={`status-pill ${searching ? 'status-running' : ''}`}><span className="status-dot" /> {searchStatus.toUpperCase()}</div>
           </div>
-          {!result && <div className="result-empty" data-testid="state-no-result">
-            <strong>{searching ? 'Working on this device' : searchStatus === 'exhausted' ? 'No match in this range' : searchStatus === 'generated' ? 'Range generation complete' : searchStatus === 'stopped' ? 'Search stopped' : searchStatus === 'limit' ? 'History safety limit reached' : 'Waiting for a local search'}</strong>
-            {searching
-              ? 'The worker is processing candidates locally. Range addresses and private keys appear in the history as they are generated.'
-              : searchStatus === 'exhausted'
-                ? 'Try a different pattern or a wider range. Every key in the range has now been checked.'
-                : searchStatus === 'generated'
-                  ? `All ${attempts.toLocaleString()} addresses and private keys from the selected range are listed below.`
-                  : searchStatus === 'limit'
-                    ? 'The search stopped to keep the browser responsive. Narrow the range and start another search.'
-                    : 'A real result appears here only when the local search finds a match. No sample address or key is displayed.'}
-          </div>}
           {result && <div className="result-main" style={{ marginTop: 16 }}>
             <div className="address-box">
-              <div className="result-label">Matched Bitcoin address</div>
-              <div className="address-text" data-testid="value-result-address">{result.address}</div>
-              <div className="result-actions">
-                <button className="small-button" type="button" onClick={() => void copyValue(result.address, 'Address')} data-testid="button-copy-address"><Copy /> Copy address</button>
-                <button className="small-button" type="button" onClick={() => void copyValue(result.privateKeyWif, 'Private key')} data-testid="button-copy-private-key"><Copy /> Copy private key</button>
-              </div>
+              <div className="result-label">Matched Address</div>
+              <div className="address-text">{result.address}</div>
+              <button className="small-button" type="button" onClick={() => void copyValue(result.address, 'Address')}><Copy /> Copy</button>
             </div>
             <div className="private-box">
-              <div className="result-label">Private key · WIF</div>
-              <div className="private-value" data-testid="value-masked-private-key">{showPrivateKey ? result.privateKeyWif : '••••••••••••••••••••••••••••••••••••'}</div>
-              <div className="result-actions">
-                <button className="small-button" type="button" onClick={() => setShowPrivateKey((visible) => !visible)} aria-label={showPrivateKey ? 'Hide private key' : 'Reveal private key'} data-testid="button-reveal-private-key"><Eye /> {showPrivateKey ? 'Hide key' : 'Reveal key'}</button>
-              </div>
+              <div className="result-label">Private key (Hex)</div>
+              <div className="private-value">{showPrivateKey ? result.privateKeyHex : '••••••••••••••••••••••••••••••••••••'}</div>
+              <button className="small-button" type="button" onClick={() => setShowPrivateKey(!showPrivateKey)}><Eye /> {showPrivateKey ? 'Hide' : 'Reveal'}</button>
             </div>
           </div>}
-          <div className="progress-track" aria-label="Search progress"><div className="progress-fill" data-testid="progress-search" style={{ width: `${progressPercent ?? (searching ? 12 : 0)}%` }} /></div>
-          <div className="progress-meta"><span data-testid="text-attempt-count">{attempts.toLocaleString()} {searchStatus === 'generated' ? 'addresses generated' : 'candidates checked'}{elapsedMs > 0 ? ` · ${(elapsedMs / 1000).toFixed(1)}s` : ''}</span><span data-testid="text-search-rate">{elapsedMs > 0 ? `${Math.round(attempts / (elapsedMs / 1000)).toLocaleString()} keys / sec` : '— keys / sec'}</span></div>
-          {candidateRecords.length > 0 && <section className="history-section" aria-label="Scanned addresses and private keys" data-testid="section-candidate-history">
-            <div className="history-heading">
-              <div>
-                <div className="result-label">Custom range history</div>
-                <div className="history-count" data-testid="text-history-count">{candidateRecords.length.toLocaleString()} addresses and private keys</div>
+          <div className="progress-track"><div className="progress-fill" style={{ width: `${progressPercent ?? (searching ? 12 : 0)}%` }} /></div>
+          <div className="progress-meta"><span>{attempts.toLocaleString()} checked</span><span>{elapsedMs > 0 ? `${Math.round(attempts / (elapsedMs / 1000)).toLocaleString()} keys/sec` : '— keys/sec'}</span></div>
+          {generatedOnly && candidateRecords.length > 0 && (
+            <section className="history-section" aria-label="Generated addresses" data-testid="section-candidate-history">
+              <div className="history-heading">
+                <div>
+                  <div className="result-label">Generated {MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} addresses</div>
+                  <div className="history-count">{candidateRecords.length.toLocaleString()} addresses</div>
+                </div>
+                <div className="history-page-label">Page {historyPage + 1} of {historyPageCount}</div>
               </div>
-              <div className="history-page-label" data-testid="text-history-page">Page {historyPage + 1} of {historyPageCount}</div>
-            </div>
-            <div className="history-warning" role="alert">
-              This list contains full private keys. Anyone who sees or copies one can spend any funds sent to its address. Generated rows exist only in memory and clear on refresh, a new search, or when the tab closes. If automatic restart is enabled, this tab remembers only the original low, last generated high, format, and block size so it can rebuild the list.
-            </div>
-            <div className="history-table-wrap">
-              <table className="history-table">
-                <thead>
-                  <tr><th scope="col">Candidate</th><th scope="col">{generatedOnly ? `${MULTI_CHAIN_OPTIONS.find((chain) => chain.id === multiChainChain)?.label ?? 'Generated'} address` : 'Bitcoin address'}</th><th scope="col">Private key · WIF</th></tr>
-                </thead>
-                <tbody>
-                  {visibleHistory.map((record) => (
-                    <tr key={record.index} data-testid={`row-candidate-${record.index}`}>
-                      <td>{record.index.toLocaleString()}</td>
-                      <td><code data-testid={`value-address-${record.index}`}>{getCandidateAddress(record)}</code></td>
-                      <td><code data-testid={`value-private-key-${record.index}`}>{record.privateKeyWif}</code></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="history-pagination">
-              {(!generatedOnly || multiChainChain === 'btc') ? (
-                <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
-              ) : (
-                <span className="hint">Generated balance checks are currently supported for Bitcoin only.</span>
-              )}
-              <button className="small-button download-addresses-button" type="button" onClick={() => void copyAllAddresses()} data-testid="button-copy-all-addresses"><Copy aria-hidden="true" /> Copy all addresses</button>
-              <button className="small-button download-addresses-button" type="button" onClick={downloadAddressesCsv} data-testid="button-download-addresses-csv"><Download aria-hidden="true" /> Download addresses CSV</button>
-              <button className="small-button download-addresses-button" type="button" onClick={downloadAddressesTxt} data-testid="button-download-addresses-txt"><Download aria-hidden="true" /> Download addresses TXT</button>
-              {historyPageCount > 1 && <>
-                <button className="small-button" type="button" disabled={historyPage === 0} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))} data-testid="button-history-newer">Earlier addresses</button>
-                <button className="small-button" type="button" disabled={historyPage >= historyPageCount - 1} onClick={() => setHistoryPage((page) => Math.min(historyPageCount - 1, page + 1))} data-testid="button-history-older">Later addresses</button>
-              </>}
-            </div>
-          </section>}
+              <div className="history-table-wrap">
+                <table className="history-table">
+                  <thead>
+                    <tr><th scope="col">Candidate</th><th scope="col">{MULTI_CHAIN_OPTIONS.find((option) => option.id === chain)?.label} address</th></tr>
+                  </thead>
+                  <tbody>
+                    {visibleHistory.map((record) => (
+                      <tr key={record.index} data-testid={`row-candidate-${record.index}`}>
+                        <td>{record.index.toLocaleString()}</td>
+                        <td><code data-testid={`value-address-${record.index}`}>{getCandidateAddress(record)}</code></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="history-pagination">
+                {chain === 'btc' && (
+                  <button className="small-button download-addresses-button" type="button" disabled={searching || autoResumePending} onClick={checkGeneratedBalances} data-testid="button-check-generated-balances"><ArrowUpRight aria-hidden="true" /> Check generated balances</button>
+                )}
+                {historyPageCount > 1 && <>
+                  <button className="small-button" type="button" disabled={historyPage === 0} onClick={() => setHistoryPage((page) => Math.max(0, page - 1))}>Earlier addresses</button>
+                  <button className="small-button" type="button" disabled={historyPage >= historyPageCount - 1} onClick={() => setHistoryPage((page) => Math.min(historyPageCount - 1, page + 1))}>Later addresses</button>
+                </>}
+              </div>
+            </section>
+          )}
         </section>
 
         <footer className="footer-note">
-          <span><KeyRound aria-hidden="true" /> Never share a private key. Anyone who has it can spend the funds.</span>
+          <span><KeyRound aria-hidden="true" /> Never share a private key.</span>
           <DonationAddress />
-          <span><LockKeyhole aria-hidden="true" /> No login · no cloud storage</span>
         </footer>
       </main>
     </div>
@@ -1198,56 +715,14 @@ function Router() {
 
   return (
     <RoutedErrorBoundary>
-      <div hidden={!isHome} data-testid="preserved-generator-page">
-        <Home />
-      </div>
-      <div hidden={!isBitcoinPuzzle} className="app-shell">
-        <SiteHeader activePage="puzzle">
-          <span>LOCAL PUZZLE INDEX</span>
-        </SiteHeader>
-        <BitcoinPuzzlePage active={isBitcoinPuzzle} />
-      </div>
-      <div hidden={!isPuzzleAddressLookup} className="app-shell">
-        <SiteHeader activePage="puzzle">
-          <span>PUZZLE ADDRESS LOOKUP</span>
-        </SiteHeader>
-        <BitcoinPuzzleAddressLookupPage active={isPuzzleAddressLookup} />
-      </div>
-      <div hidden={!isBitcoinBalance} className="app-shell">
-        <SiteHeader activePage="balance">
-          <span>BULK BALANCE CHECK</span>
-        </SiteHeader>
-        <BitcoinBalancePage active={isBitcoinBalance} />
-      </div>
-      <div hidden={!isBitcoinRangeLookup} className="app-shell">
-        <SiteHeader activePage="range-lookup">
-          <span>LOCAL RANGE LOOKUP</span>
-        </SiteHeader>
-        <BitcoinRangeLookupPage active={isBitcoinRangeLookup} />
-      </div>
-      <div hidden={!isFinder} className="app-shell">
-        <SiteHeader activePage="finder">
-          <span>HD ADDRESS FINDER</span>
-        </SiteHeader>
-        <FinderPage />
-      </div>
-      <div hidden={!isSelfTest} className="app-shell">
-        <SiteHeader activePage="self-test">
-          <span>LOCAL DIAGNOSTICS</span>
-        </SiteHeader>
-        <SelfTestPage />
-      </div>
-      {!isHome &&
-        !isBitcoinPuzzle &&
-        !isPuzzleAddressLookup &&
-        !isBitcoinBalance &&
-        !isBitcoinRangeLookup &&
-        !isFinder &&
-        !isSelfTest && (
-        <Switch>
-          <Route component={NotFound} />
-        </Switch>
-      )}
+      <div hidden={!isHome}><Home /></div>
+      <div hidden={!isBitcoinPuzzle} className="app-shell"><SiteHeader activePage="puzzle"><span>LOCAL PUZZLE INDEX</span></SiteHeader><BitcoinPuzzlePage active={isBitcoinPuzzle} /></div>
+      <div hidden={!isPuzzleAddressLookup} className="app-shell"><SiteHeader activePage="puzzle"><span>PUZZLE ADDRESS LOOKUP</span></SiteHeader><BitcoinPuzzleAddressLookupPage active={isPuzzleAddressLookup} /></div>
+      <div hidden={!isBitcoinBalance} className="app-shell"><SiteHeader activePage="balance"><span>BULK BALANCE CHECK</span></SiteHeader><BitcoinBalancePage active={isBitcoinBalance} /></div>
+      <div hidden={!isBitcoinRangeLookup} className="app-shell"><SiteHeader activePage="range-lookup"><span>LOCAL RANGE LOOKUP</span></SiteHeader><BitcoinRangeLookupPage active={isBitcoinRangeLookup} /></div>
+      <div hidden={!isFinder} className="app-shell"><SiteHeader activePage="finder"><span>HD ADDRESS FINDER</span></SiteHeader><FinderPage /></div>
+      <div hidden={!isSelfTest} className="app-shell"><SiteHeader activePage="self-test"><span>LOCAL DIAGNOSTICS</span></SiteHeader><SelfTestPage /></div>
+      {!isHome && !isBitcoinPuzzle && !isPuzzleAddressLookup && !isBitcoinBalance && !isBitcoinRangeLookup && !isFinder && !isSelfTest && (<Switch><Route component={NotFound} /></Switch>)}
     </RoutedErrorBoundary>
   );
 }

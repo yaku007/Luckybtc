@@ -87,6 +87,12 @@ export function getMultiChainAddress(privateKeyHex: string, chain: MultiChainNam
   return publicKeyToEvmAddress(publicKey);
 }
 
+// الدالة الجديدة اللي كنستعملوها فـ الـ Workers
+export function deriveAddressFromPrivateKey(privateKey: Uint8Array, chain: MultiChainName): string {
+  const privateKeyHex = bytesToHex(privateKey);
+  return getMultiChainAddress(privateKeyHex, chain);
+}
+
 export function getMultiChainAddressFromHdKey(
   hdKey: HDKey,
   chain: MultiChainName,
