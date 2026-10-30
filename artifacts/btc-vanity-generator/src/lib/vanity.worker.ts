@@ -6,10 +6,7 @@ import {
   PRIVATE_KEY_LIMIT,
   privateKeyFromRangeValue,
   randomPrivateKey,
-  privateKeyToHex,
-  type AddressFormat,
 } from "./bitcoin";
-import { deriveAddressFromPrivateKey } from "./multichain"; // <--- هنا صلحنا السمية
 import {
   CANDIDATE_BATCH_SIZE,
   MAX_RECORDED_RANGE_CANDIDATES,
@@ -145,7 +142,7 @@ worker.onmessage = (event) => {
       };
 
       while (!stopRequested) {
-        for (let count = 0; count < 2000 && !stopRequested; count += 1) {
+        for (let count = 0; count < 500 && !stopRequested; count += 1) {
           if (options.mode === "range" && cursor > end) {
             flushCandidates();
             reportEnd(
@@ -160,21 +157,13 @@ worker.onmessage = (event) => {
             options.mode === "range"
               ? privateKeyFromRangeValue(cursor++)
               : randomPrivateKey();
-          
-          let address = "";
-          let result: any = undefined;
-
-          // هنا كنختارو الشبكة
-          if (options.chain === "eth" || options.chain === "bnb" || options.chain === "polygon") {
-            address = deriveAddressFromPrivateKey(key, options.chain);
-            result = { address, privateKeyWif: "", privateKeyHex: privateKeyToHex(key) };
-          } else {
-            result = deriveBitcoinAddress(key, options.format);
-            address = result.address;
-          }
-
+          const result =
+            options.mode === "range"
+              ? deriveBitcoinAddress(key, options.format)
+              : undefined;
+          const address =
+            result?.address ?? deriveBitcoinAddressOnly(key, options.format);
           attempts += 1;
-          
           if (options.mode === "range") {
             if (!result) {
               throw new Error("Could not derive the generated private key.");
@@ -205,7 +194,7 @@ worker.onmessage = (event) => {
               type: "found",
               attempts,
               elapsedMs: Math.max(1, performance.now() - startedAt),
-              result: result,
+              result: result ?? deriveBitcoinAddress(key, options.format),
             });
             return;
           }
