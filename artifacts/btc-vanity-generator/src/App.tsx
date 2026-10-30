@@ -195,8 +195,6 @@ function Home() {
   const [exactTarget, setExactTarget] = useState('');
   const [patternPosition, setPatternPosition] = useState<'prefix' | 'suffix'>('prefix');
   const [format, setFormat] = useState<AddressFormat>(() => initialResume?.format ?? 'legacy');
-  
-  // هادي هي الـ State اللي كتتحكم فـ الشبكة
   const [chain, setChain] = useState<MultiChainName>('btc');
 
   const [rangeStart, setRangeStart] = useState(() => initialResume?.startHex ?? '');
@@ -220,8 +218,6 @@ function Home() {
   const [price, setPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<number | null>(null);
   const [priceState, setPriceState] = useState<'loading' | 'ready' | 'error'>('loading');
-  
-  // الخاص بالـ Quick Helper
   const [multiChainKey, setMultiChainKey] = useState('');
   const [multiChainChain, setMultiChainChain] = useState<MultiChainName>('eth');
 
@@ -305,7 +301,6 @@ function Home() {
 
     const normalizedExactTarget = format === 'segwit' ? exactTarget.trim().toLowerCase() : exactTarget.trim();
     
-    // هاد الشرط كيتحقق غير إلا كانت الشبكة هي البيتكوين
     if (chain === 'btc' && normalizedExactTarget && !isValidBitcoinAddressTarget(normalizedExactTarget, format)) {
       setNotice('Enter a valid mainnet Bitcoin address.');
       return;
@@ -413,7 +408,7 @@ function Home() {
         type: 'start',
         mode: mode === 'range' ? 'range' : 'random',
         format,
-        chain, // <--- هنا كنصيفطو الشبكة
+        chain, 
         prefix: normalizedExactTarget ? '' : (patternPosition === 'prefix' ? (chain === 'btc' ? `1${pattern}` : '') : ''),
         suffix: normalizedExactTarget || patternPosition === 'prefix' ? '' : pattern,
         targetAddress: normalizedExactTarget || undefined,
@@ -441,6 +436,9 @@ function Home() {
           <span className="price-dot" />
           <span>BTC {formattedPrice}</span>
         </div>
+        <span className="price-status" data-testid="status-price">
+          {priceState === 'ready' ? 'LIVE · 60s' : priceState === 'error' ? 'PRICE OFFLINE' : 'UPDATING'}
+        </span>
       </SiteHeader>
 
       <main className="page-wrap">
@@ -455,10 +453,11 @@ function Home() {
             <div className="panel-heading">
               <div>
                 <div className="section-kicker"><span className="step-number">01</span> Set your search</div>
+                <div className="subhead">Choose a pattern and the address family to search.</div>
               </div>
               <div className="mode-switch" role="group">
-                <button type="button" disabled={searching} className={`mode-option ${mode === 'secure' ? 'active' : ''}`} onClick={() => { clearResumePreference(); setMode('secure'); setRangeAccepted(false); }}>Auto · secure</button>
-                <button type="button" disabled={searching} className={`mode-option ${mode === 'range' ? 'active' : ''}`} onClick={() => { clearResumePreference(); setMode('range'); }}>Custom range</button>
+                <button type="button" disabled={searching} className={`mode-option ${mode === 'secure' ? 'active' : ''}`} onClick={() => { clearResumePreference(); setMode('secure'); setRangeAccepted(false); setNotice(''); }}>Auto · secure</button>
+                <button type="button" disabled={searching} className={`mode-option ${mode === 'range' ? 'active' : ''}`} onClick={() => { clearResumePreference(); setMode('range'); setNotice(''); }}>Custom range</button>
               </div>
             </div>
 
@@ -497,42 +496,75 @@ function Home() {
                 value={exactTarget}
                 onChange={(event) => { clearResumePreference(); setExactTarget(event.target.value.trim()); }}
                 disabled={searching}
-                placeholder={`Paste a ${chain.toUpperCase()} address to match exactly`}
+                placeholder={`Paste a complete ${chain.toUpperCase()} address to match exactly`}
               />
+            </div>
+
+            <div className="pattern-label-row">
+              <label className="field-label" htmlFor="target-prefix">{patternPosition === 'prefix' ? 'Address starts with' : 'Address ends with'}</label>
+              <div className="pattern-toggle" role="group">
+                <button type="button" className={patternPosition === 'prefix' ? 'selected' : ''} disabled={Boolean(exactTarget) || searching} onClick={() => setPatternPosition('prefix')}>Prefix</button>
+                <button type="button" className={patternPosition === 'suffix' ? 'selected' : ''} disabled={Boolean(exactTarget) || searching} onClick={() => setPatternPosition('suffix')}>Suffix</button>
+              </div>
+            </div>
+            <div className="input-row">
+              {patternPosition === 'prefix' && chain === 'btc' && <span className="target-prefix">{format === 'segwit' ? 'bc1q' : '1'}</span>}
+              {patternPosition === 'prefix' && chain !== 'btc' && <span className="target-prefix">0x</span>}
+              <input
+                id="target-prefix"
+                className="target-input"
+                value={target}
+                onChange={(event) => { clearResumePreference(); setTarget(event.target.value.replace(/\s/g, '')); }}
+                disabled={Boolean(exactTarget) || searching}
+                placeholder={patternPosition === 'prefix' ? 'your-pattern' : 'your-ending'}
+                maxLength={chain === 'btc' && format === 'segwit' ? 55 : 25}
+              />
+            </div>
+
+            <div className="field-grid">
+              <div>
+                <label className="field-label">Key generation</label>
+                <div className="select-wrap">
+                  <select className="select-control" value={mode} disabled={searching} onChange={(event) => { clearResumePreference(); setMode(event.target.value as 'secure' | 'range'); setRangeAccepted(false); }}>
+                    <option value="secure">Automatic · no range needed</option>
+                    <option value="range">User-defined range</option>
+                  </select>
+                  <ChevronDown aria-hidden="true" />
+                </div>
+              </div>
+              <div className="cpu-worker-control">
+                <div className="cpu-worker-heading">
+                  <label className="field-label"><Cpu aria-hidden="true" /> CPU workers</label>
+                  <output>{cpuWorkers} / {maxCpuWorkers} max</output>
+                </div>
+                <input className="cpu-worker-slider" type="range" min={1} max={maxCpuWorkers} step={1} value={cpuWorkers} disabled={searching} onChange={(event) => setCpuWorkers(Number(event.target.value))} />
+              </div>
             </div>
 
             {mode === 'range' && (
               <>
-                <div className="field-grid" style={{ marginTop: '16px' }}>
+                <div className="range-fields">
                   <div>
-                    <label className="field-label" htmlFor="range-start">Low private-key bound (hex)</label>
-                    <input className="range-input" id="range-start" disabled={searching} value={rangeStart} onChange={(event) => { clearResumePreference(); setRangeStart(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (start)" />
+                    <label className="field-label">Low private-key bound (hex)</label>
+                    <input className="range-input" disabled={searching} value={rangeStart} onChange={(event) => { clearResumePreference(); setRangeStart(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (start)" />
                   </div>
                   <div>
-                    <label className="field-label" htmlFor="range-end">High private-key bound (hex)</label>
-                    <input className="range-input" id="range-end" disabled={searching} value={rangeEnd} onChange={(event) => { clearResumePreference(); setRangeEnd(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (end)" />
+                    <label className="field-label">High private-key bound (hex)</label>
+                    <input className="range-input" disabled={searching} value={rangeEnd} onChange={(event) => { clearResumePreference(); setRangeEnd(event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 64)); }} placeholder="000000… (end)" />
                   </div>
                 </div>
-                <label className="confirm-row" style={{ marginTop: '12px' }}>
+                <label className="confirm-row">
                   <input type="checkbox" disabled={searching} checked={rangeAccepted} onChange={(event) => setRangeAccepted(event.target.checked)} />
-                  <span>I understand this scan displays every checked address and full WIF private key here. I will never use these keys to hold funds.</span>
+                  <span>I understand this scan displays every checked address and full WIF private key here.</span>
                 </label>
               </>
             )}
 
-            <div className="cpu-worker-control" style={{ marginTop: '16px' }}>
-              <div className="cpu-worker-heading">
-                <label className="field-label" htmlFor="cpu-workers"><Cpu aria-hidden="true" /> CPU workers</label>
-                <output htmlFor="cpu-workers">{cpuWorkers} / {maxCpuWorkers} max</output>
-              </div>
-              <input className="cpu-worker-slider" id="cpu-workers" type="range" min={1} max={maxCpuWorkers} step={1} value={cpuWorkers} disabled={searching} onChange={(event) => setCpuWorkers(Number(event.target.value))} />
-            </div>
-
-            <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)} style={{ marginTop: '20px' }}>
+            <button className="primary-button" type="submit" disabled={searchStatus === 'stopping' || (!searching && mode === 'range' && !rangeAccepted)}>
               {searching ? <CircleAlert aria-hidden="true" /> : <Fingerprint aria-hidden="true" />}
               {searching ? 'Stop search' : 'Start local search'}
             </button>
-            {notice && <div className="range-warning" role="status" style={{ marginTop: '12px' }}>{notice}</div>}
+            {notice && <div className="range-warning" role="status">{notice}</div>}
           </form>
 
           <aside className="side-stack">
