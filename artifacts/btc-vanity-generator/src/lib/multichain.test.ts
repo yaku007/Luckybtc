@@ -91,6 +91,31 @@ describe('multichain wallet helpers', () => {
     }
   });
 
+  it('retries EVM RPC batches after rate limiting', async () => {
+    vi.useFakeTimers();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('', {
+        status: 429,
+        headers: { 'Retry-After': '1' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        { jsonrpc: '2.0', id: 1, result: '0x0' },
+      ]), { status: 200 }));
+
+    try {
+      const resultPromise = fetchEvmBalanceBatch(
+        'polygon',
+        ['0x0000000000000000000000000000000000000001'],
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      await expect(resultPromise).resolves.toEqual([]);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('surfaces provider errors returned as a single JSON-RPC response', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({

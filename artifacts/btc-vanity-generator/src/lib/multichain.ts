@@ -25,6 +25,40 @@ export const CHAIN_RPC_URLS: Record<Exclude<MultiChainName, 'btc'>, string> = {
 };
 
 export const EVM_ADDRESSES_PER_REQUEST = 400;
+const EVM_RPC_MAX_ATTEMPTS = 6;
+const EVM_RPC_MAX_RETRY_DELAY_MS = 60_000;
+
+function getRetryDelay(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get('Retry-After')?.trim();
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    const retryAt = Number.isFinite(seconds)
+      ? Date.now() + seconds * 1000
+      : Date.parse(retryAfter);
+    if (Number.isFinite(retryAt)) {
+      const delay = Math.max(0, retryAt - Date.now());
+      if (delay > 0) return Math.min(delay, EVM_RPC_MAX_RETRY_DELAY_MS);
+    }
+  }
+  return Math.min(1000 * 2 ** attempt, 30_000);
+}
+
+function waitForRpcRetry(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('The request was cancelled.', 'AbortError'));
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('The request was cancelled.', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -140,15 +174,36 @@ export async function fetchEvmBalanceBatch(
     params: [address, 'latest'],
   }));
 
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal,
-  });
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < EVM_RPC_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal,
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (attempt === EVM_RPC_MAX_ATTEMPTS - 1) {
+        throw new Error(`Network request failed for ${chain.toUpperCase()} after ${EVM_RPC_MAX_ATTEMPTS} attempts.`);
+      }
+      await waitForRpcRetry(Math.min(1000 * 2 ** attempt, 30_000), signal);
+      continue;
+    }
 
-  if (!response.ok) {
-    throw new Error(`RPC request failed for ${chain.toUpperCase()} with HTTP ${response.status}.`);
+    if (response.status !== 429 && response.status < 500) break;
+    if (attempt === EVM_RPC_MAX_ATTEMPTS - 1) {
+      if (response.status === 429) {
+        throw new Error(`${chain.toUpperCase()} RPC rate limit reached (HTTP 429) after ${EVM_RPC_MAX_ATTEMPTS} attempts. Try again later.`);
+      }
+      throw new Error(`RPC request failed for ${chain.toUpperCase()} with HTTP ${response.status} after ${EVM_RPC_MAX_ATTEMPTS} attempts.`);
+    }
+    await waitForRpcRetry(getRetryDelay(response, attempt), signal);
+  }
+
+  if (!response?.ok) {
+    throw new Error(`RPC request failed for ${chain.toUpperCase()} with HTTP ${response?.status ?? 'unknown'}.`);
   }
 
   const json: unknown = await response.json();
