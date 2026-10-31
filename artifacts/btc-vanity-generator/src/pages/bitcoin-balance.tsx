@@ -24,6 +24,7 @@ import './bitcoin-balance.css';
 const MAX_ADDRESSES = 1_000_000;
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 const ADDRESSES_PER_REQUEST = 100;
+const EVM_BATCH_INTERVAL_MS = 1000;
 const MAX_CONCURRENT_REQUESTS = 2;
 const UI_UPDATE_INTERVAL_MS = 500;
 const BALANCE_API = 'https://blockchain.info/balance';
@@ -193,7 +194,7 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
       let checked = 0;
       let nextIndex = 0;
       setStatus('running');
-      setNotice('Checking balances in batches. The provider may slow large runs.');
+      setNotice('Checking balances in smaller batches to avoid provider rate limits.');
 
       try {
         while (!controller.signal.aborted && nextIndex < validAddresses.length) {
@@ -207,6 +208,9 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
           checked += batch.length;
           setCheckedCount(checked);
           setFundedAddresses([...funded]);
+          if (nextIndex < validAddresses.length) {
+            await waitForRetry(EVM_BATCH_INTERVAL_MS, controller.signal);
+          }
         }
       } catch (error) {
         controllerRef.current = null;

@@ -35,8 +35,8 @@ describe('multichain wallet helpers', () => {
     );
   });
 
-  it('checks up to 400 EVM addresses in one RPC batch and matches responses by id', async () => {
-    expect(EVM_ADDRESSES_PER_REQUEST).toBe(400);
+  it('checks up to 100 EVM addresses in one RPC batch and matches responses by id', async () => {
+    expect(EVM_ADDRESSES_PER_REQUEST).toBe(100);
     const addresses = Array.from(
       { length: EVM_ADDRESSES_PER_REQUEST },
       (_, index) => `0x${(index + 1).toString(16).padStart(40, '0')}`,

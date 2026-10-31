@@ -24,7 +24,7 @@ export const CHAIN_RPC_URLS: Record<Exclude<MultiChainName, 'btc'>, string> = {
   polygon: 'https://polygon-bor-rpc.publicnode.com',
 };
 
-export const EVM_ADDRESSES_PER_REQUEST = 400;
+export const EVM_ADDRESSES_PER_REQUEST = 100;
 const EVM_RPC_MAX_ATTEMPTS = 6;
 const EVM_RPC_MAX_RETRY_DELAY_MS = 60_000;
 
