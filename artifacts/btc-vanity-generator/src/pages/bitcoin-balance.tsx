@@ -14,6 +14,7 @@ import { isValidMainnetBitcoinAddress } from '@/lib/bitcoin';
 import { takeQueuedBalanceCheck } from '@/lib/balance-check-transfer';
 import {
   fetchEvmBalanceBatch,
+  EVM_ADDRESSES_PER_REQUEST,
   isValidEvmAddress,
   MULTI_CHAIN_OPTIONS,
   type MultiChainName,
@@ -196,7 +197,10 @@ export default function BitcoinBalancePage({ active }: { active: boolean }) {
 
       try {
         while (!controller.signal.aborted && nextIndex < validAddresses.length) {
-          const batch = validAddresses.slice(nextIndex, nextIndex + 25);
+          const batch = validAddresses.slice(
+            nextIndex,
+            nextIndex + EVM_ADDRESSES_PER_REQUEST,
+          );
           nextIndex += batch.length;
           const result = await fetchEvmBalanceBatch(selectedChain, batch, controller.signal);
           funded.push(...result.map((entry) => ({ address: entry.address, balanceWei: entry.balanceWei })));

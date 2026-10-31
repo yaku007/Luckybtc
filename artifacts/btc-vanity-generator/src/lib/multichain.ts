@@ -24,6 +24,8 @@ export const CHAIN_RPC_URLS: Record<Exclude<MultiChainName, 'btc'>, string> = {
   polygon: 'https://polygon-rpc.com',
 };
 
+export const EVM_ADDRESSES_PER_REQUEST = 400;
+
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -149,13 +151,36 @@ export async function fetchEvmBalanceBatch(
     throw new Error(`RPC request failed for ${chain.toUpperCase()} with HTTP ${response.status}.`);
   }
 
-  const json = (await response.json()) as Array<{ result?: string; error?: { message?: string } }>;
+  const json: unknown = await response.json();
+  if (!Array.isArray(json)) {
+    throw new Error(`RPC returned an invalid batch response for ${chain.toUpperCase()}.`);
+  }
+
+  const resultsById = new Map<number, Record<string, unknown>>();
+  for (const value of json) {
+    if (!value || typeof value !== 'object' || typeof value.id !== 'number') {
+      throw new Error(`RPC returned an invalid batch response for ${chain.toUpperCase()}.`);
+    }
+    resultsById.set(value.id, value);
+  }
+
   const results: EvmTokenBalance[] = [];
 
   for (let index = 0; index < addresses.length; index += 1) {
-    const item = json[index];
-    const raw = item?.result;
-    if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]+$/.test(raw)) continue;
+    const item = resultsById.get(index + 1);
+    if (!item) {
+      throw new Error(`RPC omitted address ${index + 1} from the ${chain.toUpperCase()} batch response.`);
+    }
+    if (item.error && typeof item.error === 'object') {
+      const errorMessage = 'message' in item.error && typeof item.error.message === 'string'
+        ? item.error.message
+        : 'Unknown RPC error';
+      throw new Error(`${chain.toUpperCase()} RPC request failed: ${errorMessage}`);
+    }
+    const raw = item.result;
+    if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]+$/.test(raw)) {
+      throw new Error(`RPC returned an invalid balance for address ${index + 1} on ${chain.toUpperCase()}.`);
+    }
     const balanceWei = BigInt(raw);
     if (balanceWei > 0n) {
       results.push({

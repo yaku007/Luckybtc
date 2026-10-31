@@ -1,7 +1,9 @@
 import { HDKey } from '@scure/bip32';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   deriveAddressFromPrivateKey,
+  EVM_ADDRESSES_PER_REQUEST,
+  fetchEvmBalanceBatch,
   getMultiChainAddress,
   getMultiChainAddressFromHdKey,
 } from './multichain';
@@ -30,6 +32,38 @@ describe('multichain wallet helpers', () => {
     expect(deriveAddressFromPrivateKey(privateKeyBytes, 'polygon')).toBe(
       getMultiChainAddress(privateKeyHex, 'polygon'),
     );
+  });
+
+  it('checks up to 400 EVM addresses in one RPC batch and matches responses by id', async () => {
+    expect(EVM_ADDRESSES_PER_REQUEST).toBe(400);
+    const addresses = Array.from(
+      { length: EVM_ADDRESSES_PER_REQUEST },
+      (_, index) => `0x${(index + 1).toString(16).padStart(40, '0')}`,
+    );
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([
+        ...addresses.map((_, index) => ({
+          jsonrpc: '2.0',
+          id: addresses.length - index,
+          result: index === addresses.length - 1 ? '0xde0b6b3a7640000' : '0x0',
+        })),
+      ]), { status: 200 }),
+    );
+
+    try {
+      await expect(fetchEvmBalanceBatch('eth', addresses)).resolves.toEqual([
+        {
+          address: addresses[0],
+          balanceWei: 1_000_000_000_000_000_000n,
+          balanceEth: '1.00000000',
+        },
+      ]);
+      const request = fetchSpy.mock.calls[0][1];
+      const payload = JSON.parse(String(request?.body)) as Array<{ id: number }>;
+      expect(payload).toHaveLength(EVM_ADDRESSES_PER_REQUEST);
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('derives a valid address from an HD key with a chain-specific path', () => {
