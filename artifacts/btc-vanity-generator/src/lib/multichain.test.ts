@@ -1,6 +1,7 @@
 import { HDKey } from '@scure/bip32';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CHAIN_RPC_URLS,
   deriveAddressFromPrivateKey,
   EVM_ADDRESSES_PER_REQUEST,
   fetchEvmBalanceBatch,
@@ -63,6 +64,49 @@ describe('multichain wallet helpers', () => {
       expect(payload).toHaveLength(EVM_ADDRESSES_PER_REQUEST);
     } finally {
       fetchSpy.mockRestore();
+    }
+  });
+
+  it('uses the public RPC endpoint for each EVM chain', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () => new Response(JSON.stringify([
+        { jsonrpc: '2.0', id: 1, result: '0x0' },
+      ]), {
+        status: 200,
+      }),
+    );
+
+    try {
+      await fetchEvmBalanceBatch('eth', ['0x0000000000000000000000000000000000000001']);
+      await fetchEvmBalanceBatch('bnb', ['0x0000000000000000000000000000000000000001']);
+      await fetchEvmBalanceBatch('polygon', ['0x0000000000000000000000000000000000000001']);
+
+      expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+        CHAIN_RPC_URLS.eth,
+        CHAIN_RPC_URLS.bnb,
+        CHAIN_RPC_URLS.polygon,
+      ]);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('surfaces provider errors returned as a single JSON-RPC response', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        error: { code: -32051, message: 'API key disabled' },
+      }), { status: 200 }),
+    );
+
+    try {
+      await expect(fetchEvmBalanceBatch(
+        'polygon',
+        ['0x0000000000000000000000000000000000000001'],
+      )).rejects.toThrow('POLYGON RPC request failed: API key disabled');
+    } finally {
+      vi.restoreAllMocks();
     }
   });
 

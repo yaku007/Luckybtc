@@ -19,9 +19,9 @@ export const MULTI_CHAIN_OPTIONS = [
 }[];
 
 export const CHAIN_RPC_URLS: Record<Exclude<MultiChainName, 'btc'>, string> = {
-  eth: 'https://cloudflare-eth.com',
-  bnb: 'https://bsc-dataseed.binance.org',
-  polygon: 'https://polygon-rpc.com',
+  eth: 'https://ethereum-rpc.publicnode.com',
+  bnb: 'https://bsc-rpc.publicnode.com',
+  polygon: 'https://polygon-bor-rpc.publicnode.com',
 };
 
 export const EVM_ADDRESSES_PER_REQUEST = 400;
@@ -153,6 +153,14 @@ export async function fetchEvmBalanceBatch(
 
   const json: unknown = await response.json();
   if (!Array.isArray(json)) {
+    if (json && typeof json === 'object' && 'error' in json) {
+      const rpcError = json.error;
+      const errorMessage = rpcError && typeof rpcError === 'object' &&
+        'message' in rpcError && typeof rpcError.message === 'string'
+        ? rpcError.message
+        : 'Unknown RPC error';
+      throw new Error(`${chain.toUpperCase()} RPC request failed: ${errorMessage}`);
+    }
     throw new Error(`RPC returned an invalid batch response for ${chain.toUpperCase()}.`);
   }
 
