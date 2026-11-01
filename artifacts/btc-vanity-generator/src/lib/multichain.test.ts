@@ -28,10 +28,14 @@ describe('multichain wallet helpers', () => {
 
   it('matches EVM vanity prefixes and suffixes without case sensitivity', () => {
     const address = '0xAbCd00000000000000000000000000000000Ef12';
+    const longPattern = 'a'.repeat(21);
+    const longPatternAddress = `0x${longPattern}${'0'.repeat(15)}`;
 
     expect(matchesEvmVanityPattern(address, 'abcd', '')).toBe(true);
     expect(matchesEvmVanityPattern(address, '', 'EF12')).toBe(true);
     expect(matchesEvmVanityPattern(address, 'abce', '')).toBe(false);
+    expect(matchesEvmVanityPattern(longPatternAddress, longPattern, '')).toBe(true);
+    expect(matchesEvmVanityPattern(address, 'a'.repeat(22), '')).toBe(false);
     expect(matchesEvmVanityPattern(address, 'abcdef0', '')).toBe(false);
   });
 

@@ -403,8 +403,8 @@ function Home() {
       return;
     }
 
-    if (chain !== 'btc' && !generateOnly && !/^[0-9a-fA-F]{1,6}$/.test(pattern)) {
-      setNotice('Enter a hexadecimal EVM prefix or suffix between 1 and 6 characters.');
+    if (chain !== 'btc' && !generateOnly && !/^[0-9a-fA-F]{1,21}$/.test(pattern)) {
+      setNotice('Enter a hexadecimal EVM prefix or suffix between 1 and 21 characters.');
       return;
     }
 
@@ -659,7 +659,7 @@ function Home() {
                 <p className="hint">
                   {chain === 'btc'
                     ? 'Custom-range generation displays Bitcoin addresses. Bitcoin supports exact-address and pattern matching.'
-                    : 'Auto · secure searches up to 6 hexadecimal characters for a new EVM vanity address. Custom range generates addresses only.'}
+                    : 'Auto · secure searches up to 21 hexadecimal characters for a new EVM vanity address. Longer patterns may take a very long time. Custom range generates addresses only.'}
                 </p>
               </div>
               {chain === 'btc' && (
@@ -707,7 +707,7 @@ function Home() {
                 onChange={(event) => { clearResumePreference(); setTarget(event.target.value.replace(/\s/g, '')); }}
                 disabled={Boolean(exactTarget) || searching}
                 placeholder={patternPosition === 'prefix' ? 'your-pattern' : 'your-ending'}
-                maxLength={chain === 'btc' ? (format === 'segwit' ? 55 : 25) : 6}
+                maxLength={chain === 'btc' ? (format === 'segwit' ? 55 : 25) : 21}
               />
             </div>
 

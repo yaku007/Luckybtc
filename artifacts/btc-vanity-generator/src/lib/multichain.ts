@@ -161,8 +161,8 @@ export function matchesEvmVanityPattern(
   suffix: string,
 ): boolean {
   if (
-    (prefix && !/^[a-fA-F0-9]{1,6}$/.test(prefix)) ||
-    (suffix && !/^[a-fA-F0-9]{1,6}$/.test(suffix))
+    (prefix && !/^[a-fA-F0-9]{1,21}$/.test(prefix)) ||
+    (suffix && !/^[a-fA-F0-9]{1,21}$/.test(suffix))
   ) {
     return false;
   }
