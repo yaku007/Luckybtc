@@ -8,13 +8,16 @@ import {
   randomPrivateKey,
 } from "./bitcoin";
 import {
+  deriveAddressFromPrivateKey,
+  matchesEvmVanityPattern,
+} from "./multichain";
+import {
   CANDIDATE_BATCH_SIZE,
   MAX_RECORDED_RANGE_CANDIDATES,
   type CandidateRecord,
   type WorkerRequest,
   type WorkerResponse,
 } from "./vanity-protocol";
-import { deriveAddressFromPrivateKey } from "./multichain";
 
 const MAX_CANDIDATES_BETWEEN_YIELDS = 32;
 
@@ -168,8 +171,13 @@ worker.onmessage = (event) => {
             options.mode === "range"
               ? deriveBitcoinAddress(key, options.format)
               : undefined;
+          const evmChain =
+            options.chain && options.chain !== "btc" ? options.chain : null;
+          const isEvmChain = evmChain !== null;
           const address =
-            result?.address ?? deriveBitcoinAddressOnly(key, options.format);
+            options.mode === "random" && isEvmChain
+              ? deriveAddressFromPrivateKey(key, evmChain)
+              : result?.address ?? deriveBitcoinAddressOnly(key, options.format);
           attempts += 1;
           if (options.mode === "range") {
             if (!result) {
@@ -193,19 +201,22 @@ worker.onmessage = (event) => {
 
           if (
             !options.generateOnly &&
-            matches(
-              address,
-              options.prefix,
-              options.suffix,
-              options.targetAddress ?? "",
-            )
+            (isEvmChain
+              ? matchesEvmVanityPattern(address, options.prefix, options.suffix)
+              : matches(
+                  address,
+                  options.prefix,
+                  options.suffix,
+                  options.targetAddress ?? "",
+                ))
           ) {
             flushCandidates();
+            const keyResult = result ?? deriveBitcoinAddress(key, options.format);
             worker.postMessage({
               type: "found",
               attempts,
               elapsedMs: Math.max(1, performance.now() - startedAt),
-              result: result ?? deriveBitcoinAddress(key, options.format),
+              result: { ...keyResult, address },
             });
             return;
           }

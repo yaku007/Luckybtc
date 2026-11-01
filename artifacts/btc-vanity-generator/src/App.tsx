@@ -390,12 +390,21 @@ function Home() {
       setNotice('Enter a valid mainnet Bitcoin address.');
       return;
     }
+    if (chain !== 'btc' && normalizedExactTarget) {
+      setNotice('Exact EVM address matching is unavailable. Use a short hex prefix or suffix to generate a new vanity address.');
+      return;
+    }
 
     const pattern = target.trim();
     const generateOnly = mode === 'range' && !normalizedExactTarget && !pattern;
 
-    if (chain !== 'btc' && !generateOnly) {
-      setNotice('Vanity and exact-address searches currently support Bitcoin only. Clear the target and use a custom range to generate addresses for the selected network.');
+    if (chain !== 'btc' && !generateOnly && mode !== 'secure') {
+      setNotice('Vanity searches on EVM networks use Auto · secure. Custom range supports address generation only.');
+      return;
+    }
+
+    if (chain !== 'btc' && !generateOnly && !/^[0-9a-fA-F]{1,6}$/.test(pattern)) {
+      setNotice('Enter a hexadecimal EVM prefix or suffix between 1 and 6 characters.');
       return;
     }
 
@@ -495,7 +504,7 @@ function Home() {
           setResult(message.result);
           setProgressPercent(100);
           setSearchStatus('found');
-          setNotice('Target found! The search stopped.');
+          setNotice(chain === 'btc' ? 'Target found! The search stopped.' : 'Vanity address found! The search stopped.');
           worker.terminate();
         } else if (message.type === 'exhausted') {
           setProgressPercent(100);
@@ -577,9 +586,9 @@ function Home() {
         mode: mode === 'range' ? 'range' : 'random',
         format,
         chain,
-        prefix: normalizedExactTarget ? '' : (patternPosition === 'prefix' ? (chain === 'btc' ? `1${pattern}` : '') : ''),
-        suffix: normalizedExactTarget || patternPosition === 'prefix' ? '' : pattern,
-        targetAddress: normalizedExactTarget || undefined,
+        prefix: normalizedExactTarget ? '' : (patternPosition === 'prefix' ? (chain === 'btc' ? `1${pattern}` : pattern.toLowerCase()) : ''),
+        suffix: normalizedExactTarget || patternPosition === 'prefix' ? '' : (chain === 'btc' ? pattern : pattern.toLowerCase()),
+        targetAddress: chain === 'btc' ? normalizedExactTarget || undefined : undefined,
         startHex: rangeStart,
         endHex: rangeEnd,
         generateOnly,
@@ -634,14 +643,24 @@ function Home() {
               <div>
                 <label className="field-label">Blockchain Network</label>
                 <div className="select-wrap">
-                  <select className="select-control" value={chain} disabled={searching} onChange={(event) => { clearResumePreference(); setChain(event.target.value as MultiChainName); }}>
+                  <select className="select-control" value={chain} disabled={searching} onChange={(event) => {
+                    const selectedChain = event.target.value as MultiChainName;
+                    clearResumePreference();
+                    setChain(selectedChain);
+                    setExactTarget('');
+                    setTarget('');
+                  }}>
                     {MULTI_CHAIN_OPTIONS.map((option) => (
                       <option key={option.id} value={option.id}>{option.label} ({option.symbol})</option>
                     ))}
                   </select>
                   <ChevronDown aria-hidden="true" />
                 </div>
-                <p className="hint">Custom-range generation displays addresses for the selected network. Vanity matching remains Bitcoin-only.</p>
+                <p className="hint">
+                  {chain === 'btc'
+                    ? 'Custom-range generation displays Bitcoin addresses. Bitcoin supports exact-address and pattern matching.'
+                    : 'Auto · secure searches up to 6 hexadecimal characters for a new EVM vanity address. Custom range generates addresses only.'}
+                </p>
               </div>
               {chain === 'btc' && (
                 <div>
@@ -657,15 +676,17 @@ function Home() {
               )}
             </div>
 
-            <label className="field-label" htmlFor="exact-address">Exact full {chain.toUpperCase()} address (optional)</label>
+            <label className="field-label" htmlFor="exact-address">
+              {chain === 'btc' ? 'Exact full BTC address (optional)' : 'Exact full EVM address matching unavailable'}
+            </label>
             <div className="input-row">
               <input
                 id="exact-address"
                 className="target-input"
                 value={exactTarget}
                 onChange={(event) => { clearResumePreference(); setExactTarget(event.target.value.trim()); }}
-                disabled={searching}
-                placeholder={`Paste a complete ${chain.toUpperCase()} address to match exactly`}
+                disabled={searching || chain !== 'btc'}
+                placeholder={chain === 'btc' ? 'Paste a complete BTC address to match exactly' : 'Use a short hex prefix or suffix below'}
               />
             </div>
 
@@ -686,7 +707,7 @@ function Home() {
                 onChange={(event) => { clearResumePreference(); setTarget(event.target.value.replace(/\s/g, '')); }}
                 disabled={Boolean(exactTarget) || searching}
                 placeholder={patternPosition === 'prefix' ? 'your-pattern' : 'your-ending'}
-                maxLength={chain === 'btc' && format === 'segwit' ? 55 : 25}
+                maxLength={chain === 'btc' ? (format === 'segwit' ? 55 : 25) : 6}
               />
             </div>
 

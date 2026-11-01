@@ -7,6 +7,7 @@ import {
   fetchEvmBalanceBatch,
   getMultiChainAddress,
   getMultiChainAddressFromHdKey,
+  matchesEvmVanityPattern,
 } from './multichain';
 import { findHdAddressByXpub } from './hd-address-finder';
 
@@ -23,6 +24,15 @@ describe('multichain wallet helpers', () => {
     expect(getMultiChainAddress(`${'0'.repeat(63)}1`, 'eth')).toBe(
       '0x7e5f4552091a69125d5dfcb7b8c2659029395bdf',
     );
+  });
+
+  it('matches EVM vanity prefixes and suffixes without case sensitivity', () => {
+    const address = '0xAbCd00000000000000000000000000000000Ef12';
+
+    expect(matchesEvmVanityPattern(address, 'abcd', '')).toBe(true);
+    expect(matchesEvmVanityPattern(address, '', 'EF12')).toBe(true);
+    expect(matchesEvmVanityPattern(address, 'abce', '')).toBe(false);
+    expect(matchesEvmVanityPattern(address, 'abcdef0', '')).toBe(false);
   });
 
   it('derives a selected-chain address from candidate private-key bytes', () => {

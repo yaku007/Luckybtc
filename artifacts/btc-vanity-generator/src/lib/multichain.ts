@@ -155,6 +155,24 @@ export function isValidEvmAddress(value: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
 }
 
+export function matchesEvmVanityPattern(
+  address: string,
+  prefix: string,
+  suffix: string,
+): boolean {
+  if (
+    (prefix && !/^[a-fA-F0-9]{1,6}$/.test(prefix)) ||
+    (suffix && !/^[a-fA-F0-9]{1,6}$/.test(suffix))
+  ) {
+    return false;
+  }
+  const normalizedAddress = address.toLowerCase();
+  return (
+    (!prefix || normalizedAddress.startsWith(`0x${prefix.toLowerCase()}`)) &&
+    (!suffix || normalizedAddress.endsWith(suffix.toLowerCase()))
+  );
+}
+
 export type EvmTokenBalance = {
   address: string;
   balanceWei: bigint;
